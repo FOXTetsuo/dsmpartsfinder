@@ -5,7 +5,6 @@ import "./style.css";
 
 // Import views
 import Home from "./views/Home.vue";
-import Sites from "./views/Sites.vue";
 import Parts from "./views/Parts.vue";
 import Browse from "./views/Browse.vue";
 
@@ -17,11 +16,6 @@ const router = createRouter({
       path: "/",
       name: "Home",
       component: Home,
-    },
-    {
-      path: "/sites",
-      name: "Sites",
-      component: Sites,
     },
     {
       path: "/parts",

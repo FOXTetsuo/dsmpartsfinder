@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"dsmpartsfinder-api/scrapers"
 	"dsmpartsfinder-api/siteclients"
 
 	"github.com/gin-contrib/cors"
@@ -24,15 +25,23 @@ func main() {
 	}
 	defer sqlClient.Close()
 
+	// // Run database migrations
+	// migrationRunner := NewMigrationRunner(sqlClient.db)
+	// if err := migrationRunner.Run("./migrations"); err != nil {
+	// 	log.Fatalf("Failed to run migrations: %v", err)
+	// }
+
 	// Initialize PartsService
 	partsService := NewPartsService(sqlClient)
 
 	// Register site clients
-	// TODO: Get the actual site ID from the database for SchadeAutos
-	// For now, assuming site ID 1 is SchadeAutos
 	schadeAutosClient := siteclients.NewSchadeAutosClient(1)
 	partsService.RegisterSiteClient(1, schadeAutosClient)
-	log.Println("Registered SchadeAutos client")
+	log.Println("Registered SchadeAutos client (site ID: 1)")
+
+	kleinanzeigenClient := scrapers.NewKleinanzeigenClient(2)
+	partsService.RegisterSiteClient(2, kleinanzeigenClient)
+	log.Println("Registered Kleinanzeigen client (site ID: 2)")
 
 	// Global error recovery middleware
 	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {

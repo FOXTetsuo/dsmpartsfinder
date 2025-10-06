@@ -31,25 +31,13 @@ func NewScheduler(partsService *PartsService) *Scheduler {
 func (s *Scheduler) Start() error {
 	log.Println("[Scheduler] Setting up scheduled tasks...")
 
-	// Schedule fetch at midnight (00:00:00)
-	_, err := s.cron.AddFunc("0 0 0 * * *", func() {
-		log.Println("[Scheduler] Running scheduled midnight fetch...")
+	_, err := s.cron.AddFunc("0 0 * * * *", func() {
+		log.Println("[Scheduler] Running scheduled hourly fetch...")
 		s.fetchAllParts()
 	})
 	if err != nil {
 		return err
 	}
-	log.Println("[Scheduler] Scheduled: Fetch all parts at midnight (00:00)")
-
-	// Schedule fetch at midday (12:00:00)
-	_, err = s.cron.AddFunc("0 0 12 * * *", func() {
-		log.Println("[Scheduler] Running scheduled midday fetch...")
-		s.fetchAllParts()
-	})
-	if err != nil {
-		return err
-	}
-	log.Println("[Scheduler] Scheduled: Fetch all parts at midday (12:00)")
 
 	// Start the cron scheduler
 	s.cron.Start()

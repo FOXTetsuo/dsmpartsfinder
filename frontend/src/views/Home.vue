@@ -61,10 +61,10 @@ export default {
                     class="space-y-4 sm:space-y-0 sm:space-x-4 sm:flex sm:justify-center"
                 >
                     <router-link
-                        to="/parts"
+                        to="/sites"
                         class="btn bg-white text-primary-600 hover:bg-primary-50 font-semibold text-lg px-8 py-3 rounded-lg shadow-lg transition-all duration-300 hover:shadow-xl transform hover:-translate-y-1"
                     >
-                        Browse Parts Catalog
+                        Browse Sites
                     </router-link>
                     <button
                         @click="scrollToFeatures"
@@ -322,7 +322,7 @@ export default {
                     class="space-y-4 sm:space-y-0 sm:space-x-4 sm:flex sm:justify-center"
                 >
                     <router-link
-                        to="/parts"
+                        to="/sites"
                         class="btn bg-white text-primary-600 hover:bg-primary-50 font-semibold text-lg px-8 py-3 rounded-lg shadow-lg transition-all duration-300 hover:shadow-xl transform hover:-translate-y-1"
                     >
                         Browse Parts Now

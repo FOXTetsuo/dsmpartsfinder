@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"dsmpartsfinder-api/siteclients"
 )
@@ -137,22 +136,6 @@ func (s *PartsService) FetchAndStoreParts(ctx context.Context, siteID int, param
 
 	log.Printf("[FetchAndStoreParts] Successfully stored %d new parts, skipped %d duplicates, %d errors out of %d fetched",
 		len(storedParts), duplicateCount, errorCount, len(fetchedParts))
-
-	// Delete stale parts (parts not seen in this fetch)
-	// Only delete if we successfully fetched a reasonable number of parts (to avoid deleting everything on API errors)
-	if len(fetchedParts) >= 10 {
-		log.Printf("[FetchAndStoreParts] Checking for stale parts to delete")
-		// Delete parts older than 5 minutes (parts not updated in this fetch)
-		staleThreshold := time.Now().Add(-5 * time.Minute)
-		deletedCount, err := s.sqlClient.DeleteStaleParts(siteID, staleThreshold)
-		if err != nil {
-			log.Printf("[FetchAndStoreParts] WARNING: Failed to delete stale parts: %v", err)
-		} else if deletedCount > 0 {
-			log.Printf("[FetchAndStoreParts] Deleted %d stale parts no longer available on site", deletedCount)
-		}
-	} else {
-		log.Printf("[FetchAndStoreParts] Skipping stale part deletion (too few parts fetched: %d)", len(fetchedParts))
-	}
 
 	return storedParts, nil
 }

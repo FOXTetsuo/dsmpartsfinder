@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -63,10 +64,10 @@ func (c *KleinanzeigenClient) FetchParts(ctx context.Context, params siteclients
 	}
 
 	// Set headers to mimic a browser
+	// Note: Don't set Accept-Encoding - Go's http.Client will handle gzip decompression automatically
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Upgrade-Insecure-Requests", "1")
 
@@ -81,24 +82,63 @@ func (c *KleinanzeigenClient) FetchParts(ctx context.Context, params siteclients
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
+	log.Printf("[KleinanzeigenClient] Got response with status: %d", resp.StatusCode)
+
+	// Read the response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Save HTML to file for debugging
+	htmlFile := "/tmp/kleinanzeigen_response.html"
+	if err := os.WriteFile(htmlFile, bodyBytes, 0644); err != nil {
+		log.Printf("[KleinanzeigenClient] Warning: failed to save HTML to file: %v", err)
+	} else {
+		log.Printf("[KleinanzeigenClient] Saved HTML response to: %s (size: %d bytes)", htmlFile, len(bodyBytes))
+	}
+
+	// Check for common class names in the HTML
+	htmlContent := string(bodyBytes)
+	log.Printf("[KleinanzeigenClient] Checking for various selectors:")
+	log.Printf("  - Contains 'aditem': %v", strings.Contains(htmlContent, "aditem"))
+	log.Printf("  - Contains 'ad-listitem': %v", strings.Contains(htmlContent, "ad-listitem"))
+	log.Printf("  - Contains 'article': %v", strings.Contains(htmlContent, "article"))
+	log.Printf("  - Contains 'data-adid': %v", strings.Contains(htmlContent, "data-adid"))
+
 	// Parse HTML
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(bodyBytes)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
-	// Extract parts
+	log.Printf("[KleinanzeigenClient] HTML parsed successfully")
+
+	// Initialize parts slice
 	parts := make([]siteclients.Part, 0)
-	doc.Find("article.aditem").Each(func(i int, s *goquery.Selection) {
+
+	// Use article.aditem selector - this finds the actual ad listings
+	selector := "article.aditem"
+	articleCount := doc.Find(selector).Length()
+	log.Printf("[KleinanzeigenClient] Found %d elements with selector: %s", articleCount, selector)
+
+	if articleCount == 0 {
+		log.Printf("[KleinanzeigenClient] ERROR: No articles found")
+		return parts, nil
+	}
+
+	doc.Find(selector).Each(func(i int, s *goquery.Selection) {
+		log.Printf("[KleinanzeigenClient] Processing article %d of %d", i+1, articleCount)
 		part, err := c.extractPart(ctx, s)
 		if err != nil {
-			log.Printf("[KleinanzeigenClient] Warning: failed to extract part %d: %v", i, err)
+			log.Printf("[KleinanzeigenClient] ERROR: failed to extract part %d: %v", i, err)
 			return
 		}
+		log.Printf("[KleinanzeigenClient] Successfully extracted part %d: ID=%s, Name=%s", i+1, part.ID, part.Name)
 		parts = append(parts, part)
 	})
 
-	log.Printf("[KleinanzeigenClient] Successfully extracted %d parts", len(parts))
+	log.Printf("[KleinanzeigenClient] Successfully extracted %d out of %d parts", len(parts), articleCount)
 
 	return parts, nil
 }
@@ -145,24 +185,30 @@ func (c *KleinanzeigenClient) extractPart(ctx context.Context, s *goquery.Select
 	// Extract ad ID (part ID)
 	adID, exists := s.Attr("data-adid")
 	if !exists || adID == "" {
+		log.Printf("[KleinanzeigenClient] ERROR: missing data-adid attribute")
 		return part, fmt.Errorf("missing data-adid")
 	}
+	log.Printf("[KleinanzeigenClient] Found ad ID: %s", adID)
 	part.ID = adID
 
 	// Extract relative URL
 	relativeURL, exists := s.Attr("data-href")
 	if !exists || relativeURL == "" {
+		log.Printf("[KleinanzeigenClient] ERROR: missing data-href attribute")
 		return part, fmt.Errorf("missing data-href")
 	}
 	part.URL = c.baseURL + relativeURL
+	log.Printf("[KleinanzeigenClient] URL: %s", part.URL)
 
 	// Extract title
 	title := s.Find("h2 a.ellipsis").Text()
 	title = strings.TrimSpace(title)
 	if title == "" {
+		log.Printf("[KleinanzeigenClient] ERROR: missing title")
 		return part, fmt.Errorf("missing title")
 	}
 	part.Name = title
+	log.Printf("[KleinanzeigenClient] Title: %s", title)
 
 	// Extract description
 	description := s.Find("p.aditem-main--middle--description").Text()

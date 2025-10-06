@@ -6,6 +6,7 @@ import "./style.css";
 // Import views
 import Home from "./views/Home.vue";
 import Sites from "./views/Sites.vue";
+import Parts from "./views/Parts.vue";
 
 // Create router
 const router = createRouter({
@@ -20,6 +21,11 @@ const router = createRouter({
       path: "/sites",
       name: "Sites",
       component: Sites,
+    },
+    {
+      path: "/parts",
+      name: "Parts",
+      component: Parts,
     },
   ],
 });

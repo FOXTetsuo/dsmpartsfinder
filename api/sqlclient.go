@@ -171,11 +171,11 @@ func (c *SQLClient) DeleteSite(id int) error {
 }
 
 // CreatePart creates a new part in the database
-func (c *SQLClient) CreatePart(partID, description, typeName, name, imageBase64, url string, siteID int) (*Part, error) {
+func (c *SQLClient) CreatePart(partID, description, typeName, name, imageBase64, url string, siteID int, price string) (*Part, error) {
 	result, err := c.db.Exec(`
-		INSERT INTO parts (part_id, description, type_name, name, image_base64, url, site_id, last_seen)
-		VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-	`, partID, description, typeName, name, imageBase64, url, siteID)
+		INSERT INTO parts (part_id, description, type_name, name, image_base64, url, site_id, price, last_seen)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	`, partID, description, typeName, name, imageBase64, url, siteID, price)
 	if err != nil {
 		logError("Failed to create part", err)
 		return nil, err
@@ -196,6 +196,7 @@ func (c *SQLClient) CreatePart(partID, description, typeName, name, imageBase64,
 		ImageBase64: imageBase64,
 		URL:         url,
 		SiteID:      siteID,
+		Price:       price,
 	}
 
 	logSuccess(fmt.Sprintf("Created part with ID %d", id))
@@ -205,14 +206,19 @@ func (c *SQLClient) CreatePart(partID, description, typeName, name, imageBase64,
 // GetPartByID retrieves a single part by its database ID
 func (c *SQLClient) GetPartByID(id int) (*Part, error) {
 	var part Part
+	var price sql.NullString
 	err := c.db.QueryRow(`
-		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, created_at, updated_at, last_seen
+		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, price, created_at, updated_at, last_seen
 		FROM parts WHERE id = ?
 	`, id).Scan(
 		&part.ID, &part.PartID, &part.Description, &part.TypeName,
-		&part.Name, &part.ImageBase64, &part.URL, &part.SiteID,
+		&part.Name, &part.ImageBase64, &part.URL, &part.SiteID, &price,
 		&part.CreatedAt, &part.UpdatedAt, &part.LastSeen,
 	)
+
+	if price.Valid {
+		part.Price = price.String
+	}
 
 	if err == sql.ErrNoRows {
 		return nil, sql.ErrNoRows
@@ -228,7 +234,7 @@ func (c *SQLClient) GetPartByID(id int) (*Part, error) {
 // GetPartsBySiteID retrieves all parts for a specific site
 func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, error) {
 	query := `
-		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, created_at, updated_at, last_seen
+		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, price, created_at, updated_at, last_seen
 		FROM parts
 		WHERE site_id = ?
 		ORDER BY created_at DESC
@@ -245,14 +251,18 @@ func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, err
 	var parts []Part
 	for rows.Next() {
 		var part Part
+		var price sql.NullString
 		err := rows.Scan(
 			&part.ID, &part.PartID, &part.Description, &part.TypeName,
-			&part.Name, &part.ImageBase64, &part.URL, &part.SiteID,
+			&part.Name, &part.ImageBase64, &part.URL, &part.SiteID, &price,
 			&part.CreatedAt, &part.UpdatedAt, &part.LastSeen,
 		)
 		if err != nil {
 			logError("Failed to scan part data", err)
 			return nil, err
+		}
+		if price.Valid {
+			part.Price = price.String
 		}
 		parts = append(parts, part)
 	}
@@ -269,7 +279,7 @@ func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, err
 // GetAllParts retrieves all parts from the database
 func (c *SQLClient) GetAllParts(limit, offset int) ([]Part, error) {
 	query := `
-		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, created_at, updated_at, last_seen
+		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, price, created_at, updated_at, last_seen
 		FROM parts
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
@@ -285,14 +295,18 @@ func (c *SQLClient) GetAllParts(limit, offset int) ([]Part, error) {
 	var parts []Part
 	for rows.Next() {
 		var part Part
+		var price sql.NullString
 		err := rows.Scan(
 			&part.ID, &part.PartID, &part.Description, &part.TypeName,
-			&part.Name, &part.ImageBase64, &part.URL, &part.SiteID,
+			&part.Name, &part.ImageBase64, &part.URL, &part.SiteID, &price,
 			&part.CreatedAt, &part.UpdatedAt, &part.LastSeen,
 		)
 		if err != nil {
 			logError("Failed to scan part data", err)
 			return nil, err
+		}
+		if price.Valid {
+			part.Price = price.String
 		}
 		parts = append(parts, part)
 	}
@@ -413,12 +427,12 @@ func (c *SQLClient) DeleteStaleParts(siteID int, olderThan time.Time) (int64, er
 }
 
 // UpdatePart updates an existing part in the database
-func (c *SQLClient) UpdatePart(id int, partID, description, typeName, name, imageBase64, url string, siteID int) (*Part, error) {
+func (c *SQLClient) UpdatePart(id int, partID, description, typeName, name, imageBase64, url string, siteID int, price string) (*Part, error) {
 	result, err := c.db.Exec(`
 		UPDATE parts
-		SET part_id = ?, description = ?, type_name = ?, name = ?, image_base64 = ?, url = ?, site_id = ?, updated_at = CURRENT_TIMESTAMP, last_seen = CURRENT_TIMESTAMP
+		SET part_id = ?, description = ?, type_name = ?, name = ?, image_base64 = ?, url = ?, site_id = ?, price = ?, updated_at = CURRENT_TIMESTAMP, last_seen = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, partID, description, typeName, name, imageBase64, url, siteID, id)
+	`, partID, description, typeName, name, imageBase64, url, siteID, price, id)
 	if err != nil {
 		logError(fmt.Sprintf("Failed to update part with ID %d", id), err)
 		return nil, err

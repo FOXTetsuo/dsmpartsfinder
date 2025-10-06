@@ -199,6 +199,7 @@ func (c *SchadeAutosClient) FetchParts(ctx context.Context, params SearchParams)
 			Name:        stockPart.Name,
 			URL:         c.buildPartURL(partID, &stockPart),
 			SiteID:      c.siteID,
+			Price:       stockPart.Price,
 		}
 
 		// Fetch and convert image to base64

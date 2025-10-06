@@ -378,13 +378,19 @@
                                     }}</n-text>
                                 </n-ellipsis>
                                 <n-space :size="8" style="margin-top: 8px" wrap>
+                                    <!-- Site Name Tag -->
+                                    <n-tag size="small" type="default">
+                                        {{ getSiteName(part.site_id) }}
+                                    </n-tag>
                                     <n-tag size="small" type="info">
                                         {{ part.type_name }}
                                     </n-tag>
-                                    <n-tag size="small" type="default">
-                                        Site {{ part.site_id }}
-                                    </n-tag>
+                                    <!-- (Site tag replaced above with site name) -->
                                 </n-space>
+                            </div>
+                            <!-- Price in bottom right -->
+                            <div class="part-card-price" v-if="part.price">
+                                <span>{{ part.price }}</span>
                             </div>
                         </div>
                     </n-card>
@@ -448,11 +454,20 @@
                             </template>
                             <template #header-extra>
                                 <n-space :size="8">
+                                    <!-- Site Name Tag -->
+                                    <n-tag size="small" type="default">
+                                        {{ getSiteName(part.site_id) }}
+                                    </n-tag>
                                     <n-tag size="small" type="info">
                                         {{ part.type_name }}
                                     </n-tag>
-                                    <n-tag size="small" type="default">
-                                        Site {{ part.site_id }}
+                                    <n-tag
+                                        v-if="part.price"
+                                        size="small"
+                                        type="success"
+                                        strong
+                                    >
+                                        {{ part.price }}
                                     </n-tag>
                                 </n-space>
                             </template>
@@ -532,6 +547,14 @@
                         <!-- Details -->
                         <n-card title="Details" size="small">
                             <n-descriptions :column="1" bordered>
+                                <n-descriptions-item
+                                    v-if="selectedPart.price"
+                                    label="Price"
+                                >
+                                    <n-tag type="success" strong>
+                                        {{ selectedPart.price }}
+                                    </n-tag>
+                                </n-descriptions-item>
                                 <n-descriptions-item label="Part ID">
                                     {{ selectedPart.part_id }}
                                 </n-descriptions-item>
@@ -945,6 +968,16 @@ export default defineComponent({
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 20px;
+}
+
+.part-card-price {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    background: #fff;
+    color: #18a058;
+    font-size: 1.2rem;
+    font-weight: bold;
 }
 
 .part-card {

@@ -43,6 +43,13 @@ func main() {
 	partsService.RegisterSiteClient(2, kleinanzeigenClient)
 	log.Println("Registered Kleinanzeigen client (site ID: 2)")
 
+	// Initialize and start scheduler for automatic fetching
+	scheduler := NewScheduler(partsService)
+	if err := scheduler.Start(); err != nil {
+		log.Fatalf("Failed to start scheduler: %v", err)
+	}
+	defer scheduler.Stop()
+
 	// Global error recovery middleware
 	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
 		log.Printf("PANIC: %v", recovered)

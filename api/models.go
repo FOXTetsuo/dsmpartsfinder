@@ -38,6 +38,7 @@ type Part struct {
 	ImageBase64 string    `json:"image_base64"`
 	URL         string    `json:"url"`
 	SiteID      int       `json:"site_id"`
+	Price       string    `json:"price"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	LastSeen    time.Time `json:"last_seen"`

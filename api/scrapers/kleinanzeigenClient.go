@@ -232,22 +232,9 @@ func (c *KleinanzeigenClient) extractPart(ctx context.Context, s *goquery.Select
 	// Extract price (optional)
 	price := s.Find("p.aditem-main--middle--price-shipping--price").Text()
 	price = strings.TrimSpace(price)
-	if price != "" {
-		// Add price to description
-		part.Description = fmt.Sprintf("%s | Price: %s", part.Description, price)
-	}
+	part.Price = price
 
-	// Extract location (optional)
-	location := s.Find(".aditem-main--top--left").Text()
-	location = strings.TrimSpace(location)
-	if location != "" {
-		// Clean up location (remove icon text)
-		location = strings.ReplaceAll(location, "\n", " ")
-		location = strings.TrimSpace(location)
-		part.TypeName = location
-	} else {
-		part.TypeName = "Unknown Location"
-	}
+	part.TypeName = "Eclipse (D30)"
 
 	// Extract image URL
 	imgSrc, exists := s.Find(".imagebox img").Attr("src")

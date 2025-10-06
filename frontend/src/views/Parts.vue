@@ -268,26 +268,30 @@ export default defineComponent({
                 },
             },
             {
+                title: "Price",
+                key: "price",
+                width: 120,
+                render(row) {
+                    if (row.price) {
+                        return h(
+                            NTag,
+                            {
+                                type: "success",
+                                size: "small",
+                                strong: true,
+                            },
+                            { default: () => row.price },
+                        );
+                    }
+                    return h("span", { style: { color: "#999" } }, "-");
+                },
+            },
+            {
                 title: "Type",
                 key: "type_name",
                 width: 120,
                 ellipsis: {
                     tooltip: true,
-                },
-            },
-            {
-                title: "Site ID",
-                key: "site_id",
-                width: 100,
-                render(row) {
-                    return h(
-                        NTag,
-                        {
-                            type: "info",
-                            size: "small",
-                        },
-                        { default: () => `Site ${row.site_id}` },
-                    );
                 },
             },
             {

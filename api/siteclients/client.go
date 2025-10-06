@@ -13,6 +13,7 @@ type Part struct {
 	ImageBase64 string `json:"image_base64"`
 	URL         string `json:"url"`
 	SiteID      int    `json:"site_id"`
+	Price       string `json:"price"`
 }
 
 // SearchParams represents the search parameters for finding parts

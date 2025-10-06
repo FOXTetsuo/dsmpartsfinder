@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -46,17 +45,64 @@ func (c *KleinanzeigenClient) GetSiteID() int {
 }
 
 // FetchParts fetches parts from Kleinanzeigen based on search parameters
+// Automatically fetches all pages until no more results are found
 func (c *KleinanzeigenClient) FetchParts(ctx context.Context, params siteclients.SearchParams) ([]siteclients.Part, error) {
 	log.Printf("[KleinanzeigenClient] Starting fetch with params: %+v", params)
 
-	// Build search URL
-	searchURL, err := c.buildSearchURL(params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build search URL: %w", err)
+	allParts := make([]siteclients.Part, 0)
+	page := 1
+	maxPages := 100    // Safety limit to prevent infinite loops
+	itemsPerPage := 25 // Kleinanzeigen shows 25 items per page
+
+	for page <= maxPages {
+		log.Printf("[KleinanzeigenClient] Fetching page %d...", page)
+
+		// Build search URL with page number
+		searchURL, err := c.buildSearchURLWithPage(params, page)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build search URL: %w", err)
+		}
+
+		log.Printf("[KleinanzeigenClient] Page %d URL: %s", page, searchURL)
+
+		// Fetch the page
+		pageParts, err := c.fetchSinglePage(ctx, searchURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch page %d: %w", page, err)
+		}
+
+		log.Printf("[KleinanzeigenClient] Page %d: got %d parts", page, len(pageParts))
+
+		// If no parts found, we've reached the end
+		if len(pageParts) == 0 {
+			log.Printf("[KleinanzeigenClient] No more parts found on page %d, stopping", page)
+			break
+		}
+
+		allParts = append(allParts, pageParts...)
+
+		// If we got fewer parts than a full page, this is the last page
+		if len(pageParts) < itemsPerPage {
+			log.Printf("[KleinanzeigenClient] Got less than full page (%d < %d), this is the last page", len(pageParts), itemsPerPage)
+			break
+		}
+
+		// Check if limit is set and we've reached it
+		if params.Limit > 0 && len(allParts) >= params.Limit {
+			log.Printf("[KleinanzeigenClient] Reached limit of %d parts, stopping", params.Limit)
+			allParts = allParts[:params.Limit]
+			break
+		}
+
+		page++
 	}
 
-	log.Printf("[KleinanzeigenClient] Search URL: %s", searchURL)
+	log.Printf("[KleinanzeigenClient] Finished fetching. Total parts: %d from %d page(s)", len(allParts), page)
+	return allParts, nil
+}
 
+// fetchSinglePage fetches and parses a single page
+func (c *KleinanzeigenClient) fetchSinglePage(ctx context.Context, searchURL string) ([]siteclients.Part, error) {
 	// Fetch the page
 	req, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
 	if err != nil {
@@ -82,29 +128,11 @@ func (c *KleinanzeigenClient) FetchParts(ctx context.Context, params siteclients
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	log.Printf("[KleinanzeigenClient] Got response with status: %d", resp.StatusCode)
-
 	// Read the response body
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-
-	// Save HTML to file for debugging
-	htmlFile := "/tmp/kleinanzeigen_response.html"
-	if err := os.WriteFile(htmlFile, bodyBytes, 0644); err != nil {
-		log.Printf("[KleinanzeigenClient] Warning: failed to save HTML to file: %v", err)
-	} else {
-		log.Printf("[KleinanzeigenClient] Saved HTML response to: %s (size: %d bytes)", htmlFile, len(bodyBytes))
-	}
-
-	// Check for common class names in the HTML
-	htmlContent := string(bodyBytes)
-	log.Printf("[KleinanzeigenClient] Checking for various selectors:")
-	log.Printf("  - Contains 'aditem': %v", strings.Contains(htmlContent, "aditem"))
-	log.Printf("  - Contains 'ad-listitem': %v", strings.Contains(htmlContent, "ad-listitem"))
-	log.Printf("  - Contains 'article': %v", strings.Contains(htmlContent, "article"))
-	log.Printf("  - Contains 'data-adid': %v", strings.Contains(htmlContent, "data-adid"))
 
 	// Parse HTML
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(bodyBytes)))
@@ -112,41 +140,34 @@ func (c *KleinanzeigenClient) FetchParts(ctx context.Context, params siteclients
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
-	log.Printf("[KleinanzeigenClient] HTML parsed successfully")
-
 	// Initialize parts slice
 	parts := make([]siteclients.Part, 0)
 
 	// Use article.aditem selector - this finds the actual ad listings
 	selector := "article.aditem"
 	articleCount := doc.Find(selector).Length()
-	log.Printf("[KleinanzeigenClient] Found %d elements with selector: %s", articleCount, selector)
 
 	if articleCount == 0 {
-		log.Printf("[KleinanzeigenClient] ERROR: No articles found")
 		return parts, nil
 	}
 
 	doc.Find(selector).Each(func(i int, s *goquery.Selection) {
-		log.Printf("[KleinanzeigenClient] Processing article %d of %d", i+1, articleCount)
 		part, err := c.extractPart(ctx, s)
 		if err != nil {
-			log.Printf("[KleinanzeigenClient] ERROR: failed to extract part %d: %v", i, err)
+			log.Printf("[KleinanzeigenClient] Warning: failed to extract part %d: %v", i, err)
 			return
 		}
-		log.Printf("[KleinanzeigenClient] Successfully extracted part %d: ID=%s, Name=%s", i+1, part.ID, part.Name)
 		parts = append(parts, part)
 	})
 
-	log.Printf("[KleinanzeigenClient] Successfully extracted %d out of %d parts", len(parts), articleCount)
-
+	log.Printf("[KleinanzeigenClient] Extracted %d parts from page", len(parts))
 	return parts, nil
 }
 
-// buildSearchURL constructs the search URL with parameters
-func (c *KleinanzeigenClient) buildSearchURL(params siteclients.SearchParams) (string, error) {
+// buildSearchURLWithPage constructs the search URL with parameters and page number
+func (c *KleinanzeigenClient) buildSearchURLWithPage(params siteclients.SearchParams, page int) (string, error) {
 	// Build the search keywords
-	keywords := "Mitsubishi Eclipse"
+	keywords := "Mitsubishi Eclipse D30"
 	if params.Model != "" {
 		keywords = fmt.Sprintf("Mitsubishi Eclipse %s", params.Model)
 	}
@@ -166,9 +187,8 @@ func (c *KleinanzeigenClient) buildSearchURL(params siteclients.SearchParams) (s
 	queryParams.Set("shippingCarrier", "")
 	queryParams.Set("shipping", "")
 
-	// Add pagination if needed (Kleinanzeigen uses page numbers)
-	if params.Offset > 0 {
-		page := (params.Offset / 25) + 1 // 25 items per page
+	// Add page number (Kleinanzeigen uses pageNum parameter)
+	if page > 1 {
 		queryParams.Set("pageNum", fmt.Sprintf("%d", page))
 	}
 
@@ -185,30 +205,24 @@ func (c *KleinanzeigenClient) extractPart(ctx context.Context, s *goquery.Select
 	// Extract ad ID (part ID)
 	adID, exists := s.Attr("data-adid")
 	if !exists || adID == "" {
-		log.Printf("[KleinanzeigenClient] ERROR: missing data-adid attribute")
 		return part, fmt.Errorf("missing data-adid")
 	}
-	log.Printf("[KleinanzeigenClient] Found ad ID: %s", adID)
 	part.ID = adID
 
 	// Extract relative URL
 	relativeURL, exists := s.Attr("data-href")
 	if !exists || relativeURL == "" {
-		log.Printf("[KleinanzeigenClient] ERROR: missing data-href attribute")
 		return part, fmt.Errorf("missing data-href")
 	}
 	part.URL = c.baseURL + relativeURL
-	log.Printf("[KleinanzeigenClient] URL: %s", part.URL)
 
 	// Extract title
 	title := s.Find("h2 a.ellipsis").Text()
 	title = strings.TrimSpace(title)
 	if title == "" {
-		log.Printf("[KleinanzeigenClient] ERROR: missing title")
 		return part, fmt.Errorf("missing title")
 	}
 	part.Name = title
-	log.Printf("[KleinanzeigenClient] Title: %s", title)
 
 	// Extract description
 	description := s.Find("p.aditem-main--middle--description").Text()

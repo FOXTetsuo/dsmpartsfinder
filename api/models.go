@@ -40,6 +40,7 @@ type Part struct {
 	SiteID      int       `json:"site_id"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	LastSeen    time.Time `json:"last_seen"`
 }
 
 // FetchPartsRequest represents the request body for fetching parts from a site

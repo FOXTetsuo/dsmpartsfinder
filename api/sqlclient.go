@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	_ "github.com/glebarez/go-sqlite"
 )
@@ -172,8 +173,8 @@ func (c *SQLClient) DeleteSite(id int) error {
 // CreatePart creates a new part in the database
 func (c *SQLClient) CreatePart(partID, description, typeName, name, imageBase64, url string, siteID int) (*Part, error) {
 	result, err := c.db.Exec(`
-		INSERT INTO parts (part_id, description, type_name, name, image_base64, url, site_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO parts (part_id, description, type_name, name, image_base64, url, site_id, last_seen)
+		VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 	`, partID, description, typeName, name, imageBase64, url, siteID)
 	if err != nil {
 		logError("Failed to create part", err)
@@ -205,12 +206,12 @@ func (c *SQLClient) CreatePart(partID, description, typeName, name, imageBase64,
 func (c *SQLClient) GetPartByID(id int) (*Part, error) {
 	var part Part
 	err := c.db.QueryRow(`
-		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, created_at, updated_at
+		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, created_at, updated_at, last_seen
 		FROM parts WHERE id = ?
 	`, id).Scan(
 		&part.ID, &part.PartID, &part.Description, &part.TypeName,
 		&part.Name, &part.ImageBase64, &part.URL, &part.SiteID,
-		&part.CreatedAt, &part.UpdatedAt,
+		&part.CreatedAt, &part.UpdatedAt, &part.LastSeen,
 	)
 
 	if err == sql.ErrNoRows {
@@ -227,7 +228,7 @@ func (c *SQLClient) GetPartByID(id int) (*Part, error) {
 // GetPartsBySiteID retrieves all parts for a specific site
 func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, error) {
 	query := `
-		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, created_at, updated_at
+		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, created_at, updated_at, last_seen
 		FROM parts
 		WHERE site_id = ?
 		ORDER BY created_at DESC
@@ -247,7 +248,7 @@ func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, err
 		err := rows.Scan(
 			&part.ID, &part.PartID, &part.Description, &part.TypeName,
 			&part.Name, &part.ImageBase64, &part.URL, &part.SiteID,
-			&part.CreatedAt, &part.UpdatedAt,
+			&part.CreatedAt, &part.UpdatedAt, &part.LastSeen,
 		)
 		if err != nil {
 			logError("Failed to scan part data", err)
@@ -268,7 +269,7 @@ func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, err
 // GetAllParts retrieves all parts from the database
 func (c *SQLClient) GetAllParts(limit, offset int) ([]Part, error) {
 	query := `
-		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, created_at, updated_at
+		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, created_at, updated_at, last_seen
 		FROM parts
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
@@ -287,7 +288,7 @@ func (c *SQLClient) GetAllParts(limit, offset int) ([]Part, error) {
 		err := rows.Scan(
 			&part.ID, &part.PartID, &part.Description, &part.TypeName,
 			&part.Name, &part.ImageBase64, &part.URL, &part.SiteID,
-			&part.CreatedAt, &part.UpdatedAt,
+			&part.CreatedAt, &part.UpdatedAt, &part.LastSeen,
 		)
 		if err != nil {
 			logError("Failed to scan part data", err)
@@ -353,11 +354,69 @@ func (c *SQLClient) GetExistingPartIDs(partIDs []string, siteID int) (map[string
 	return existingParts, nil
 }
 
+// UpdateLastSeen updates the last_seen timestamp for multiple parts
+func (c *SQLClient) UpdateLastSeen(partIDs []string, siteID int) error {
+	if len(partIDs) == 0 {
+		return nil
+	}
+
+	placeholders := make([]string, len(partIDs))
+	args := make([]interface{}, len(partIDs)+1)
+	args[0] = siteID
+
+	for i, partID := range partIDs {
+		placeholders[i] = "?"
+		args[i+1] = partID
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE parts
+		SET last_seen = CURRENT_TIMESTAMP
+		WHERE site_id = ? AND part_id IN (%s)
+	`, strings.Join(placeholders, ","))
+
+	result, err := c.db.Exec(query, args...)
+	if err != nil {
+		logError("Failed to update last_seen timestamps", err)
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		logError("Failed to get rows affected for last_seen update", err)
+		return err
+	}
+
+	log.Printf("Updated last_seen for %d parts in site ID %d", rowsAffected, siteID)
+	return nil
+}
+
+// DeleteStaleParts deletes parts that haven't been seen since a specific time
+func (c *SQLClient) DeleteStaleParts(siteID int, olderThan time.Time) (int64, error) {
+	result, err := c.db.Exec(`
+		DELETE FROM parts
+		WHERE site_id = ? AND last_seen < ?
+	`, siteID, olderThan)
+	if err != nil {
+		logError(fmt.Sprintf("Failed to delete stale parts for site ID %d", siteID), err)
+		return 0, err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		logError("Failed to get rows affected for stale parts deletion", err)
+		return 0, err
+	}
+
+	log.Printf("Deleted %d stale parts for site ID %d (older than %s)", rowsAffected, siteID, olderThan.Format("2006-01-02 15:04:05"))
+	return rowsAffected, nil
+}
+
 // UpdatePart updates an existing part in the database
 func (c *SQLClient) UpdatePart(id int, partID, description, typeName, name, imageBase64, url string, siteID int) (*Part, error) {
 	result, err := c.db.Exec(`
 		UPDATE parts
-		SET part_id = ?, description = ?, type_name = ?, name = ?, image_base64 = ?, url = ?, site_id = ?, updated_at = CURRENT_TIMESTAMP
+		SET part_id = ?, description = ?, type_name = ?, name = ?, image_base64 = ?, url = ?, site_id = ?, updated_at = CURRENT_TIMESTAMP, last_seen = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`, partID, description, typeName, name, imageBase64, url, siteID, id)
 	if err != nil {

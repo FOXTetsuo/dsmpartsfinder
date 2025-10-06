@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"dsmpartsfinder-api/siteclients"
 )
@@ -38,6 +39,7 @@ func (s *PartsService) GetSiteClient(siteID int) (siteclients.SiteClient, error)
 }
 
 // FetchAndStoreParts fetches parts from a site client and stores them in the database
+// It also updates last_seen for existing parts and optionally deletes stale parts
 func (s *PartsService) FetchAndStoreParts(ctx context.Context, siteID int, params siteclients.SearchParams) ([]Part, error) {
 	log.Printf("[FetchAndStoreParts] Starting fetch for site ID: %d with params: %+v", siteID, params)
 
@@ -79,6 +81,19 @@ func (s *PartsService) FetchAndStoreParts(ctx context.Context, siteID int, param
 
 	duplicateCount := len(existingParts)
 	log.Printf("[FetchAndStoreParts] Found %d existing parts, %d new parts to insert", duplicateCount, len(fetchedParts)-duplicateCount)
+
+	// Update last_seen for existing parts
+	if len(existingParts) > 0 {
+		existingPartIDs := make([]string, 0, len(existingParts))
+		for partID := range existingParts {
+			existingPartIDs = append(existingPartIDs, partID)
+		}
+		log.Printf("[FetchAndStoreParts] Updating last_seen for %d existing parts", len(existingPartIDs))
+		if err := s.sqlClient.UpdateLastSeen(existingPartIDs, siteID); err != nil {
+			log.Printf("[FetchAndStoreParts] WARNING: Failed to update last_seen: %v", err)
+			// Don't fail the entire operation, just log the error
+		}
+	}
 
 	// Store only new parts in the database
 	log.Printf("[FetchAndStoreParts] Starting to store new parts in database")
@@ -122,6 +137,22 @@ func (s *PartsService) FetchAndStoreParts(ctx context.Context, siteID int, param
 
 	log.Printf("[FetchAndStoreParts] Successfully stored %d new parts, skipped %d duplicates, %d errors out of %d fetched",
 		len(storedParts), duplicateCount, errorCount, len(fetchedParts))
+
+	// Delete stale parts (parts not seen in this fetch)
+	// Only delete if we successfully fetched a reasonable number of parts (to avoid deleting everything on API errors)
+	if len(fetchedParts) >= 10 {
+		log.Printf("[FetchAndStoreParts] Checking for stale parts to delete")
+		// Delete parts older than 5 minutes (parts not updated in this fetch)
+		staleThreshold := time.Now().Add(-5 * time.Minute)
+		deletedCount, err := s.sqlClient.DeleteStaleParts(siteID, staleThreshold)
+		if err != nil {
+			log.Printf("[FetchAndStoreParts] WARNING: Failed to delete stale parts: %v", err)
+		} else if deletedCount > 0 {
+			log.Printf("[FetchAndStoreParts] Deleted %d stale parts no longer available on site", deletedCount)
+		}
+	} else {
+		log.Printf("[FetchAndStoreParts] Skipping stale part deletion (too few parts fetched: %d)", len(fetchedParts))
+	}
 
 	return storedParts, nil
 }

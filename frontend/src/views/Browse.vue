@@ -320,15 +320,19 @@
                         <div class="part-card-content">
                             <!-- Image -->
                             <div class="part-image">
-                                <n-image
+                                <div
                                     v-if="part.image_base64"
-                                    :src="`data:image/jpeg;base64,${part.image_base64}`"
-                                    object-fit="cover"
-                                    :img-props="{
-                                        style: 'width: 100%; height: 200px; object-fit: cover;',
+                                    class="part-image-blur-bg"
+                                    :style="{
+                                        backgroundImage: `url('data:image/jpeg;base64,${part.image_base64}')`,
                                     }"
-                                    :preview-src="`data:image/jpeg;base64,${part.image_base64}`"
-                                />
+                                >
+                                    <img
+                                        :src="`data:image/jpeg;base64,${part.image_base64}`"
+                                        class="part-image-centered"
+                                        alt="Part Image"
+                                    />
+                                </div>
                                 <div v-else class="no-image">
                                     <n-icon size="48" :depth="3">
                                         <svg
@@ -1004,6 +1008,43 @@ export default defineComponent({
     border-radius: 4px;
     overflow: hidden;
     background-color: #f5f5f5;
+}
+
+/* Blurred background for image area */
+.part-image-blur-bg {
+    width: 100%;
+    height: 200px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+}
+.part-image-blur-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(18px) brightness(1.15) saturate(1.2);
+    z-index: 1;
+    background-image: inherit;
+    /* fallback for browsers that don't support inherit, will be overridden inline */
+}
+.part-image-centered {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: transparent;
 }
 
 .no-image {

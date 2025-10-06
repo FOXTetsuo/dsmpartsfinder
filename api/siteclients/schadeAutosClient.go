@@ -43,11 +43,11 @@ func (c *SchadeAutosClient) GetSiteID() int {
 // schadeAutosResponse represents the JSON response structure from the API
 type schadeAutosResponse struct {
 	Result struct {
-		Limited bool    `json:"limited"`
-		Descr   string  `json:"descr"`
-		Time    float64 `json:"time"`
+		Limited    bool                 `json:"limited"`
+		Descr      string               `json:"descr"`
+		Time       float64              `json:"time"`
+		StockParts map[string]stockPart `json:"stockParts"`
 	} `json:"result"`
-	StockParts map[string]stockPart `json:"stockParts"`
 }
 
 // stockPart represents an individual part in the response
@@ -61,10 +61,8 @@ type stockPart struct {
 	MakeName      string        `json:"makeName"`
 	BaseModelName string        `json:"baseModelName"`
 	ModelName     string        `json:"modelName"`
-	EngineCode    string        `json:"engineCode"`
 	EngineName    string        `json:"engineName"`
 	Year          interface{}   `json:"year"`
-	Mileage       string        `json:"mileage"`
 	PriceExcl     float64       `json:"priceExcl"`
 	Price         string        `json:"price"`
 	Nos           []interface{} `json:"nos"`
@@ -160,6 +158,16 @@ func (c *SchadeAutosClient) FetchParts(ctx context.Context, params SearchParams)
 	req.Header.Set("Origin", c.baseURL)
 	req.Header.Set("Referer", fmt.Sprintf("%s/parts/eng/car-parts", c.baseURL))
 
+	// Print request as cURL command
+	curlCmd := fmt.Sprintf("curl -X POST '%s'", apiURL)
+	for key, values := range req.Header {
+		for _, value := range values {
+			curlCmd += fmt.Sprintf(" \\\n  -H '%s: %s'", key, value)
+		}
+	}
+	curlCmd += fmt.Sprintf(" \\\n  --data '%s'", formData.Encode())
+	fmt.Printf("Request as cURL:\n%s\n\n", curlCmd)
+
 	// Execute request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -177,9 +185,13 @@ func (c *SchadeAutosClient) FetchParts(ctx context.Context, params SearchParams)
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
+	// Log response info
+	fmt.Printf("Response parsed. Limited: %v, Descr: %s, Parts count: %d\n",
+		apiResponse.Result.Limited, apiResponse.Result.Descr, len(apiResponse.Result.StockParts))
+
 	// Convert stock parts to Part structs
-	parts := make([]Part, 0, len(apiResponse.StockParts))
-	for partID, stockPart := range apiResponse.StockParts {
+	parts := make([]Part, 0, len(apiResponse.Result.StockParts))
+	for partID, stockPart := range apiResponse.Result.StockParts {
 		part := Part{
 			ID:          partID,
 			Description: stockPart.Descr,

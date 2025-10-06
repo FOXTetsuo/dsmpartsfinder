@@ -19,7 +19,7 @@
                         </p>
                     </div>
 
-                    <n-space>
+                    <n-space align="center">
                         <n-button
                             type="primary"
                             :loading="fetchingAll"
@@ -52,6 +52,25 @@
                             </template>
                             Fetch Parts from All Sites
                         </n-button>
+
+                        <div
+                            style="display: flex; align-items: center; gap: 8px"
+                        >
+                            <span style="color: #666; font-size: 14px"
+                                >Limit:</span
+                            >
+                            <n-input-number
+                                v-model:value="fetchLimit"
+                                :min="10"
+                                :max="10000"
+                                :step="100"
+                                style="width: 120px"
+                                size="small"
+                            />
+                            <span style="color: #999; font-size: 12px"
+                                >parts</span
+                            >
+                        </div>
 
                         <n-button
                             :loading="loading"
@@ -136,6 +155,7 @@ import {
     NTag,
     NStatistic,
     NAlert,
+    NInputNumber,
     useMessage,
 } from "naive-ui";
 import axios from "axios";
@@ -150,6 +170,7 @@ export default defineComponent({
         NIcon,
         NStatistic,
         NAlert,
+        NInputNumber,
     },
     setup() {
         console.log("[Parts.vue] setup() called");
@@ -161,6 +182,7 @@ export default defineComponent({
         const fetchAllSuccessMessage = ref("");
         const fetchAllError = ref(false);
         const fetchAllErrorMessage = ref("");
+        const fetchLimit = ref(3000); // Configurable limit for fetching parts
 
         console.log("[Parts.vue] Initial parts.value:", parts.value);
 
@@ -295,11 +317,11 @@ export default defineComponent({
             loading.value = true;
             try {
                 console.log(
-                    "[Parts.vue] Making GET request to /api/parts with limit=1000, offset=0",
+                    "[Parts.vue] Making GET request to /api/parts with limit=10000, offset=0",
                 );
                 const response = await axios.get("/api/parts", {
                     params: {
-                        limit: 1000,
+                        limit: 10000,
                         offset: 0,
                     },
                 });
@@ -365,7 +387,7 @@ export default defineComponent({
                 const requestBody = {
                     year_from: 1960,
                     year_to: 2025,
-                    limit: 100,
+                    limit: fetchLimit.value,
                 };
                 console.log(
                     "[Parts.vue] Making POST request to /api/parts/fetch-all with body:",
@@ -449,6 +471,7 @@ export default defineComponent({
             fetchAllSuccessMessage,
             fetchAllError,
             fetchAllErrorMessage,
+            fetchLimit,
         };
     },
 });

@@ -64,14 +64,38 @@ func (s *PartsService) FetchAndStoreParts(ctx context.Context, siteID int, param
 			fetchedParts[0].ID, fetchedParts[0].Name, fetchedParts[0].TypeName)
 	}
 
-	// Store parts in the database
-	log.Printf("[FetchAndStoreParts] Starting to store %d parts in database", len(fetchedParts))
-	storedParts := make([]Part, 0, len(fetchedParts))
-	duplicateCount := 0
+	// Check which parts already exist in the database
+	log.Printf("[FetchAndStoreParts] Checking for existing parts in database")
+	partIDs := make([]string, len(fetchedParts))
+	for i, part := range fetchedParts {
+		partIDs[i] = part.ID
+	}
+
+	existingParts, err := s.sqlClient.GetExistingPartIDs(partIDs, siteID)
+	if err != nil {
+		log.Printf("[FetchAndStoreParts] ERROR: Failed to check existing parts: %v", err)
+		return nil, fmt.Errorf("failed to check existing parts: %w", err)
+	}
+
+	duplicateCount := len(existingParts)
+	log.Printf("[FetchAndStoreParts] Found %d existing parts, %d new parts to insert", duplicateCount, len(fetchedParts)-duplicateCount)
+
+	// Store only new parts in the database
+	log.Printf("[FetchAndStoreParts] Starting to store new parts in database")
+	storedParts := make([]Part, 0, len(fetchedParts)-duplicateCount)
 	errorCount := 0
+	insertedCount := 0
 
 	for i, part := range fetchedParts {
-		// Try to create the part, skip if it already exists (duplicate key)
+		// Skip if part already exists
+		if existingParts[part.ID] {
+			if i < 3 { // Log first 3 skipped duplicates
+				log.Printf("[FetchAndStoreParts] Skipping duplicate part: ID=%s, Name=%s", part.ID, part.Name)
+			}
+			continue
+		}
+
+		// Insert the new part
 		storedPart, err := s.sqlClient.CreatePart(
 			part.ID,
 			part.Description,
@@ -83,21 +107,21 @@ func (s *PartsService) FetchAndStoreParts(ctx context.Context, siteID int, param
 		)
 		if err != nil {
 			// Log the error but continue with other parts
-			if i < 3 { // Log details for first 3 errors only
+			if errorCount < 3 { // Log details for first 3 errors only
 				log.Printf("[FetchAndStoreParts] Warning: failed to store part %s (index %d): %v", part.ID, i, err)
 			}
 			errorCount++
 			continue
 		}
 		storedParts = append(storedParts, *storedPart)
-		if i < 3 { // Log first 3 successful stores
+		insertedCount++
+		if insertedCount <= 3 { // Log first 3 successful stores
 			log.Printf("[FetchAndStoreParts] Successfully stored part: ID=%s, DB_ID=%d, Name=%s", part.ID, storedPart.ID, storedPart.Name)
 		}
 	}
 
-	duplicateCount = errorCount // Most errors are likely duplicates
-	log.Printf("[FetchAndStoreParts] Successfully stored %d new parts, %d duplicates/errors out of %d fetched",
-		len(storedParts), duplicateCount, len(fetchedParts))
+	log.Printf("[FetchAndStoreParts] Successfully stored %d new parts, skipped %d duplicates, %d errors out of %d fetched",
+		len(storedParts), duplicateCount, errorCount, len(fetchedParts))
 
 	return storedParts, nil
 }

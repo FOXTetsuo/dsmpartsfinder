@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 
 	_ "github.com/glebarez/go-sqlite"
 )
@@ -302,6 +303,54 @@ func (c *SQLClient) GetAllParts(limit, offset int) ([]Part, error) {
 
 	logSuccess(fmt.Sprintf("Retrieved %d parts", len(parts)))
 	return parts, nil
+}
+
+// GetExistingPartIDs checks which part IDs already exist in the database for a given site
+// Returns a map where keys are part IDs that exist
+func (c *SQLClient) GetExistingPartIDs(partIDs []string, siteID int) (map[string]bool, error) {
+	if len(partIDs) == 0 {
+		return make(map[string]bool), nil
+	}
+
+	// Build a query with placeholders for the IN clause
+	placeholders := make([]string, len(partIDs))
+	args := make([]interface{}, len(partIDs)+1)
+	args[0] = siteID
+
+	for i, partID := range partIDs {
+		placeholders[i] = "?"
+		args[i+1] = partID
+	}
+
+	query := fmt.Sprintf(`
+		SELECT part_id FROM parts
+		WHERE site_id = ? AND part_id IN (%s)
+	`, strings.Join(placeholders, ","))
+
+	rows, err := c.db.Query(query, args...)
+	if err != nil {
+		logError("Failed to query existing part IDs", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	existingParts := make(map[string]bool)
+	for rows.Next() {
+		var partID string
+		if err := rows.Scan(&partID); err != nil {
+			logError("Failed to scan part ID", err)
+			return nil, err
+		}
+		existingParts[partID] = true
+	}
+
+	if err = rows.Err(); err != nil {
+		logError("Error iterating existing part IDs", err)
+		return nil, err
+	}
+
+	log.Printf("Found %d existing parts out of %d checked for site ID %d", len(existingParts), len(partIDs), siteID)
+	return existingParts, nil
 }
 
 // UpdatePart updates an existing part in the database

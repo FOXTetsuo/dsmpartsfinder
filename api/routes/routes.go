@@ -34,6 +34,7 @@ type PartsService interface {
 	GetPartByID(id int) (*Part, error)
 	GetPartsBySiteID(siteID, limit, offset int) ([]Part, error)
 	DeletePartsBySiteID(siteID int) error
+	GetTotalPartsCount() (int, error)
 }
 
 func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsService) {
@@ -97,101 +98,7 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 			})
 		})
 
-		// POST /api/sites - Create a new site
-		api.POST("/sites", func(c *gin.Context) {
-			var req CreateSiteRequest
-			if err := c.ShouldBindJSON(&req); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error":   "Invalid request body",
-					"details": err.Error(),
-				})
-				return
-			}
-
-			site, err := sqlClient.CreateSite(req.Name, req.URL)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to create site",
-					"details": err.Error(),
-				})
-				return
-			}
-
-			c.JSON(http.StatusCreated, gin.H{
-				"data":    site,
-				"message": "Site created successfully",
-			})
-		})
-
-		// PUT /api/sites/:id - Update a site
-		api.PUT("/sites/:id", func(c *gin.Context) {
-			id, err := strconv.Atoi(c.Param("id"))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "Invalid site ID",
-				})
-				return
-			}
-
-			var req UpdateSiteRequest
-			if err := c.ShouldBindJSON(&req); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error":   "Invalid request body",
-					"details": err.Error(),
-				})
-				return
-			}
-
-			site, err := sqlClient.UpdateSite(id, req.Name, req.URL)
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, gin.H{
-					"error": "Site not found",
-				})
-				return
-			} else if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to update site",
-					"details": err.Error(),
-				})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"data":    site,
-				"message": "Site updated successfully",
-			})
-		})
-
-		// DELETE /api/sites/:id - Delete a site
-		api.DELETE("/sites/:id", func(c *gin.Context) {
-			id, err := strconv.Atoi(c.Param("id"))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "Invalid site ID",
-				})
-				return
-			}
-
-			err = sqlClient.DeleteSite(id)
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, gin.H{
-					"error": "Site not found",
-				})
-				return
-			} else if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to delete site",
-					"details": err.Error(),
-				})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Site deleted successfully",
-			})
-		})
-
-		// POST /api/parts/fetch - Fetch parts from a site and store them
+		// POST /api/parts/fetch - Fetch parts from all sites
 		api.POST("/parts/fetch", func(c *gin.Context) {
 			log.Println("[POST /api/parts/fetch] Endpoint called")
 
@@ -343,7 +250,17 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 				return
 			}
 
-			log.Printf("[GET /api/parts] Returning %d parts (limit=%d, offset=%d)", len(parts), limit, offset)
+			total, err := partsService.GetTotalPartsCount()
+			if err != nil {
+				log.Printf("[GET /api/parts] ERROR getting total count: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "Failed to get total parts count",
+					"details": err.Error(),
+				})
+				return
+			}
+
+			log.Printf("[GET /api/parts] Returning %d parts (limit=%d, offset=%d, total=%d)", len(parts), limit, offset, total)
 			if len(parts) > 0 {
 				log.Printf("[GET /api/parts] First part: ID=%d, PartID=%s, Name=%s", parts[0].ID, parts[0].PartID, parts[0].Name)
 			}
@@ -351,7 +268,7 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 			c.JSON(http.StatusOK, gin.H{
 				"data":    parts,
 				"message": "Parts retrieved successfully",
-				"total":   len(parts),
+				"total":   total,
 				"limit":   limit,
 				"offset":  offset,
 			})

@@ -72,6 +72,23 @@
                             >
                         </div>
 
+                        <n-space align="center" style="margin-left: 16px">
+                            <n-select
+                                v-model:value="selectedSite"
+                                :options="siteOptions"
+                                placeholder="Select site"
+                                style="width: 150px"
+                            />
+                            <n-button
+                                :disabled="!selectedSite"
+                                :loading="deletingSite"
+                                type="error"
+                                @click="deletePartsFromSite(selectedSite)"
+                            >
+                                Delete Site Parts
+                            </n-button>
+                        </n-space>
+
                         <n-button
                             :loading="loading"
                             @click="loadParts"
@@ -156,6 +173,7 @@ import {
     NStatistic,
     NAlert,
     NInputNumber,
+    NSelect,
     useMessage,
 } from "naive-ui";
 import axios from "axios";
@@ -171,6 +189,7 @@ export default defineComponent({
         NStatistic,
         NAlert,
         NInputNumber,
+        NSelect,
     },
     setup() {
         console.log("[Parts.vue] setup() called");
@@ -183,6 +202,15 @@ export default defineComponent({
         const fetchAllError = ref(false);
         const fetchAllErrorMessage = ref("");
         const fetchLimit = ref(3000); // Configurable limit for fetching parts
+        const selectedSite = ref(null);
+        const siteOptions = computed(() => {
+            const sites = new Set(parts.value.map((part) => part.site_id));
+            return Array.from(sites).map((id) => ({
+                label: `Site ${id}`,
+                value: id,
+            }));
+        });
+        const deletingSite = ref(false);
 
         console.log("[Parts.vue] Initial parts.value:", parts.value);
 
@@ -371,6 +399,33 @@ export default defineComponent({
             }
         };
 
+        const deletePartsFromSite = async (siteId) => {
+            if (
+                !confirm(
+                    `Are you sure you want to delete all parts from Site ${siteId}?`,
+                )
+            ) {
+                return;
+            }
+
+            deletingSite.value = true;
+            try {
+                await axios.delete(`/api/sites/${siteId}/parts`);
+                message.success(
+                    `Successfully deleted all parts from Site ${siteId}`,
+                );
+                await loadParts();
+                selectedSite.value = null;
+            } catch (error) {
+                console.error("[Parts.vue] Error deleting parts:", error);
+                message.error(
+                    error.response?.data?.error || "Failed to delete parts",
+                );
+            } finally {
+                deletingSite.value = false;
+            }
+        };
+
         const fetchFromAllSites = async () => {
             console.log("[Parts.vue] fetchFromAllSites() called");
             if (
@@ -476,6 +531,10 @@ export default defineComponent({
             fetchAllError,
             fetchAllErrorMessage,
             fetchLimit,
+            selectedSite,
+            siteOptions,
+            deletingSite,
+            deletePartsFromSite,
         };
     },
 });

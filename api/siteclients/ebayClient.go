@@ -185,7 +185,7 @@ func (c *EbayClient) FetchParts(ctx context.Context, params SearchParams) ([]Par
 		query.Set("limit", "200")
 		query.Set("offset", fmt.Sprintf("%d", offset))
 		query.Set("q", "(Mitsubishi Eclipse 2g, D32A)")
-		query.Set("category_ids", "6030,33743")
+		query.Set("category_ids", "6030")
 
 		apiURL := fmt.Sprintf("https://api.ebay.com/buy/browse/v1/item_summary/search?%s", query.Encode())
 		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)

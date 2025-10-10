@@ -263,11 +263,10 @@
                     <n-space align="center" justify="space-between">
                         <n-statistic
                             label="Total Results"
-                            :value="filteredParts.length"
+                            :value="totalItems"
                         />
                         <n-text depth="3">
-                            Showing {{ paginatedParts.length }} of
-                            {{ filteredParts.length }} parts
+                            Showing {{ parts.length }} of {{ totalItems }} parts
                         </n-text>
                     </n-space>
                 </n-card>
@@ -288,7 +287,7 @@
 
                 <!-- Empty State -->
                 <n-empty
-                    v-else-if="filteredParts.length === 0"
+                    v-else-if="totalItems === 0"
                     description="No parts found matching your criteria"
                     size="large"
                     style="padding: 60px 0"
@@ -303,7 +302,7 @@
                 <!-- Grid View -->
                 <div v-else-if="viewMode === 'grid'" class="parts-grid">
                     <n-card
-                        v-for="part in paginatedParts"
+                        v-for="part in parts"
                         :key="part.id"
                         hoverable
                         class="part-card"
@@ -403,7 +402,7 @@
                 <!-- List View -->
                 <n-list v-else-if="viewMode === 'list'" bordered>
                     <n-list-item
-                        v-for="part in paginatedParts"
+                        v-for="part in parts"
                         :key="part.id"
                         class="part-list-item"
                         @click="selectPart(part)"
@@ -506,20 +505,28 @@
                 </n-list>
 
                 <!-- Pagination -->
-                <n-card v-if="filteredParts.length > 0">
-                    <n-pagination
-                        v-model:page="currentPage"
-                        v-model:page-size="pageSize"
-                        :page-count="totalPages"
-                        :page-sizes="[12, 24, 48, 96]"
-                        show-size-picker
-                        show-quick-jumper
-                        :page-slot="7"
-                    >
-                        <template #prefix="{ itemCount }">
-                            Total: {{ itemCount }}
-                        </template>
-                    </n-pagination>
+                <n-card v-if="totalItems > 0">
+                    <n-space align="center" justify="space-between">
+                        <n-select
+                            v-model:value="pageSize"
+                            :options="pageSizeOptions"
+                            @update:value="handlePageSizeChange"
+                            class="page-size-select"
+                        />
+                        <n-pagination
+                            v-model:page="currentPage"
+                            :page-count="totalPages"
+                            :on-update:page="loadParts"
+                            show-quick-jumper
+                        />
+                        <n-text>
+                            {{ (currentPage - 1) * pageSize + 1 }} -
+                            {{
+                                Math.min(currentPage * pageSize, totalItems)
+                            }}
+                            of {{ totalItems }}
+                        </n-text>
+                    </n-space>
                 </n-card>
             </n-space>
 
@@ -694,9 +701,17 @@ export default defineComponent({
         const searchQuery = ref("");
         const viewMode = ref("grid");
         const currentPage = ref(1);
-        const pageSize = ref(24);
+        const pageSize = ref(20);
+        const totalItems = ref(0);
         const showDetailsDrawer = ref(false);
         const selectedPart = ref(null);
+
+        // Page size options
+        const pageSizeOptions = [
+            { label: "20 per page", value: 20 },
+            { label: "50 per page", value: 50 },
+            { label: "100 per page", value: 100 },
+        ];
 
         const filters = ref({
             siteId: null,
@@ -761,95 +776,31 @@ export default defineComponent({
             );
         });
 
-        // Filtered and sorted parts
-        const filteredParts = computed(() => {
-            let result = [...parts.value];
-
-            // Apply search
-            if (searchQuery.value) {
-                const query = searchQuery.value.toLowerCase();
-                result = result.filter(
-                    (part) =>
-                        part.name?.toLowerCase().includes(query) ||
-                        part.description?.toLowerCase().includes(query) ||
-                        part.type_name?.toLowerCase().includes(query) ||
-                        part.part_id?.toLowerCase().includes(query),
-                );
-            }
-
-            // Apply site filter
-            if (filters.value.siteId !== null) {
-                result = result.filter(
-                    (part) => part.site_id === filters.value.siteId,
-                );
-            }
-
-            // Apply type filter
-            if (filters.value.typeName !== null) {
-                result = result.filter(
-                    (part) => part.type_name === filters.value.typeName,
-                );
-            }
-
-            // Apply "Only New" filter
-            if (filters.value.showOnlyNew) {
-                result = result.filter((part) => isNewPart(part.created_at));
-            }
-
-            // Apply sorting
-            switch (sortBy.value) {
-                case "newest":
-                    result.sort(
-                        (a, b) =>
-                            new Date(b.created_at) - new Date(a.created_at),
-                    );
-                    break;
-                case "oldest":
-                    result.sort(
-                        (a, b) =>
-                            new Date(a.created_at) - new Date(b.created_at),
-                    );
-                    break;
-                case "recent_seen":
-                    result.sort(
-                        (a, b) => new Date(b.last_seen) - new Date(a.last_seen),
-                    );
-                    break;
-                case "name_asc":
-                    result.sort((a, b) => a.name.localeCompare(b.name));
-                    break;
-                case "name_desc":
-                    result.sort((a, b) => b.name.localeCompare(a.name));
-                    break;
-            }
-
-            return result;
-        });
-
-        // Paginated parts
-        const paginatedParts = computed(() => {
-            const start = (currentPage.value - 1) * pageSize.value;
-            const end = start + pageSize.value;
-            return filteredParts.value.slice(start, end);
-        });
-
         // Total pages
         const totalPages = computed(() => {
-            return Math.ceil(filteredParts.value.length / pageSize.value);
+            return Math.ceil(totalItems.value / pageSize.value);
         });
 
         // Load parts from API
         const loadParts = async () => {
             loading.value = true;
             try {
+                const offset = (currentPage.value - 1) * pageSize.value;
                 const response = await axios.get("/api/parts", {
                     params: {
-                        limit: 10000,
-                        offset: 0,
+                        limit: pageSize.value,
+                        offset: offset,
+                        site_id: filters.value.siteId,
+                        type_name: filters.value.typeName,
+                        search: searchQuery.value || undefined,
+                        sort_by: sortBy.value,
                     },
                 });
                 parts.value = response.data.data || [];
-                message.success(`Loaded ${parts.value.length} parts`);
+                totalItems.value = response.data.total || 0;
+                message.success(
+                    `Showing ${parts.value.length} of ${totalItems.value} parts`,
+                );
             } catch (error) {
                 console.error("Error loading parts:", error);
                 message.error("Failed to load parts");
@@ -893,6 +844,14 @@ export default defineComponent({
         // Apply filters
         const applyFilters = () => {
             currentPage.value = 1; // Reset to first page
+            loadParts(); // Reload with new filters
+        };
+
+        // Handle page size change
+        const handlePageSizeChange = (newSize) => {
+            pageSize.value = newSize;
+            currentPage.value = 1; // Reset to first page
+            loadParts();
         };
 
         // Reset filters
@@ -942,9 +901,9 @@ export default defineComponent({
             typeOptions,
             sortOptions,
             hasActiveFilters,
-            filteredParts,
-            paginatedParts,
-            totalPages,
+            pageSizeOptions,
+            totalItems,
+            handlePageSizeChange,
             showDetailsDrawer,
             selectedPart,
             themeOverrides,
@@ -1149,6 +1108,24 @@ export default defineComponent({
     letter-spacing: 1px;
     position: relative;
     z-index: 1;
+}
+
+.pagination-controls {
+    margin-top: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.page-size-select {
+    min-width: 120px;
+}
+
+.pagination-info {
+    color: var(--n-text-color);
+    font-size: 0.9rem;
 }
 
 .new-badge-list {

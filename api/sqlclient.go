@@ -17,6 +17,18 @@ type SQLClient struct {
 	db *sql.DB
 }
 
+func (c *SQLClient) GetTotalPartsCount() (int, error) {
+	var count int
+	query := "SELECT COUNT(*) FROM parts"
+	err := c.db.QueryRow(query).Scan(&count)
+	if err != nil {
+		logError("Failed to get total parts count", err)
+		return 0, err
+	}
+
+	return count, nil
+}
+
 // NewSQLClient creates and initializes a new SQLClient
 func NewSQLClient(dbPath string) (*SQLClient, error) {
 	db, err := sql.Open("sqlite", dbPath)

@@ -185,6 +185,16 @@ func (s *PartsService) GetAllParts(limit, offset int) ([]Part, error) {
 	return parts, nil
 }
 
+func (s *PartsService) GetTotalPartsCount() (int, error) {
+	count, err := s.sqlClient.GetTotalPartsCount()
+	if err != nil {
+		log.Printf("[GetTotalPartsCount] ERROR: %v", err)
+		return 0, err
+	}
+	log.Printf("[GetTotalPartsCount] Total count: %d", count)
+	return count, nil
+}
+
 // GetPartByID retrieves a specific part by its ID
 func (s *PartsService) GetPartByID(id int) (*Part, error) {
 	return s.sqlClient.GetPartByID(id)

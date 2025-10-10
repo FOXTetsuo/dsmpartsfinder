@@ -696,9 +696,9 @@ export default defineComponent({
 
         // Page size options
         const pageSizeOptions = [
-            { label: "24 per page", value: 24 },
-            { label: "48 per page", value: 48 },
-            { label: "96 per page", value: 96 },
+            { label: "24/page", value: 24 },
+            { label: "48/page", value: 48 },
+            { label: "96/page", value: 96 },
         ];
 
         const filters = ref({
@@ -707,7 +707,7 @@ export default defineComponent({
             showOnlyNew: false,
         });
 
-        const sortBy = ref("creation_date_asc");
+        const sortBy = ref("creation_date_desc");
 
         const themeOverrides = {
             common: {

@@ -165,7 +165,6 @@ func (s *PartsService) FetchPartsOnly(ctx context.Context, siteID int, params si
 
 // GetPartsBySiteID retrieves all parts for a specific site from the database
 func (s *PartsService) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, error) {
-	log.Printf("[GetPartsBySiteID] Called with siteID=%d, limit=%d, offset=%d", siteID, limit, offset)
 	parts, err := s.sqlClient.GetPartsBySiteID(siteID, limit, offset)
 	if err != nil {
 		log.Printf("[GetPartsBySiteID] ERROR: %v", err)
@@ -177,13 +176,11 @@ func (s *PartsService) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, 
 
 // GetAllParts retrieves all parts from the database
 func (s *PartsService) GetAllParts(limit, offset int) ([]Part, error) {
-	log.Printf("[GetAllParts] Called with limit=%d, offset=%d", limit, offset)
 	parts, err := s.sqlClient.GetAllParts(limit, offset)
 	if err != nil {
 		log.Printf("[GetAllParts] ERROR: %v", err)
 		return nil, err
 	}
-	log.Printf("[GetAllParts] Retrieved %d parts from database", len(parts))
 	return parts, nil
 }
 

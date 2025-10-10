@@ -45,7 +45,7 @@ func (c *SQLClient) GetFilteredPartsCount(typeFilter string, siteID int, newerTh
 	}
 
 	if !newerThan.IsZero() {
-		queryBuilder.WriteString(" AND created_at > ?")
+		queryBuilder.WriteString(" AND creation_date > ?")
 		params = append(params, newerThan)
 	}
 

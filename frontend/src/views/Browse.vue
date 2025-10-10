@@ -312,6 +312,7 @@
                         hoverable
                         class="part-card"
                         @click="selectPart(part)"
+                        style="max-width: 100%"
                     >
                         <!-- NEW Badge -->
                         <div v-if="isNewPart(part)" class="new-badge">
@@ -516,6 +517,11 @@
                             v-model:page="currentPage"
                             :page-count="totalPages"
                             :page-size="pageSize"
+                            :style="{
+                                maxWidth: '100%',
+                                '--n-item-size': '28px',
+                                '--n-item-padding': '0 4px',
+                            }"
                             :item-count="totalItems"
                             @update:page="handlePageChange"
                         />
@@ -531,8 +537,9 @@
             <!-- Part Details Drawer -->
             <n-drawer
                 v-model:show="showDetailsDrawer"
-                :width="600"
+                :width="windowWidth < 768 ? '90%' : 600"
                 placement="right"
+                class="part-details-drawer"
             >
                 <n-drawer-content
                     v-if="selectedPart"
@@ -623,7 +630,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, onMounted } from "vue";
+import { defineComponent, ref, computed, onMounted, onUnmounted } from "vue";
 import {
     NConfigProvider,
     NSpace,
@@ -690,6 +697,7 @@ export default defineComponent({
         const parts = ref([]);
         const sites = ref([]);
         const loading = ref(false);
+        const windowWidth = ref(window.innerWidth);
         const searchQuery = ref("");
         const viewMode = ref("grid");
         const currentPage = ref(1);
@@ -889,12 +897,23 @@ export default defineComponent({
         onMounted(() => {
             loadParts();
             loadSites();
+
+            // Add window resize listener
+            const handleResize = () => {
+                windowWidth.value = window.innerWidth;
+            };
+            window.addEventListener("resize", handleResize);
+        });
+
+        onUnmounted(() => {
+            window.removeEventListener("resize", handleResize);
         });
 
         return {
             parts,
             sites,
             loading,
+            windowWidth,
             searchQuery,
             viewMode,
             currentPage,
@@ -1121,8 +1140,23 @@ export default defineComponent({
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 1rem;
+    gap: 0.5rem;
     flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 0.5rem;
+}
+
+:deep(.n-pagination) {
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+:deep(.n-pagination-item) {
+    min-width: 32px;
+    height: 32px;
+    font-size: 14px;
 }
 
 .page-size-select {
@@ -1205,6 +1239,21 @@ export default defineComponent({
 @media (max-width: 768px) {
     .browse-page {
         padding: 12px;
+    }
+
+    /* Part details drawer responsiveness */
+    @media (max-width: 768px) {
+        .part-details-drawer {
+            :deep(.n-drawer-content) {
+                padding: 12px;
+            }
+            :deep(.n-drawer-header) {
+                padding: 12px;
+            }
+            :deep(.n-drawer-body) {
+                padding: 12px;
+            }
+        }
     }
 
     .parts-grid {

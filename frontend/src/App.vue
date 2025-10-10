@@ -1,6 +1,10 @@
 <template>
     <n-message-provider>
-        <div id="app" class="min-h-screen bg-gray-50">
+        <div
+            id="app"
+            class="min-h-screen bg-gray-50"
+            @click="handleGlobalClick"
+        >
             <!-- Navigation Header -->
             <nav class="bg-white shadow-sm border-b border-gray-200">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -10,7 +14,7 @@
                             <div class="flex-shrink-0 flex items-center">
                                 <router-link
                                     to="/"
-                                    class="text-2xl font-bold gradient-primary bg-clip-text text-transparent"
+                                    class="text-2xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent hover:from-red-700 hover:to-red-900 transition-colors duration-200"
                                 >
                                     DSM Parts Finder
                                 </router-link>

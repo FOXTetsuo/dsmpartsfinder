@@ -28,7 +28,7 @@ func (c *SQLClient) GetTotalPartsCount() (int, error) {
 	return count, nil
 }
 
-func (c *SQLClient) GetFilteredPartsCount(typeFilter string, siteID int, newerThan time.Time) (int, error) {
+func (c *SQLClient) GetFilteredPartsCount(typeFilter string, siteID int, newerThan time.Time, search string) (int, error) {
 	queryBuilder := strings.Builder{}
 	params := make([]interface{}, 0)
 
@@ -47,6 +47,12 @@ func (c *SQLClient) GetFilteredPartsCount(typeFilter string, siteID int, newerTh
 	if !newerThan.IsZero() {
 		queryBuilder.WriteString(" AND created_at > ?")
 		params = append(params, newerThan)
+	}
+
+	if search != "" {
+		queryBuilder.WriteString(" AND (name LIKE ? OR description LIKE ? OR type_name LIKE ?)")
+		searchPattern := "%" + search + "%"
+		params = append(params, searchPattern, searchPattern, searchPattern)
 	}
 
 	var count int
@@ -320,7 +326,7 @@ func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, err
 }
 
 // GetFilteredParts retrieves filtered parts from the database
-func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time) ([]Part, error) {
+func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time, search string) ([]Part, error) {
 	queryBuilder := strings.Builder{}
 	params := make([]interface{}, 0)
 
@@ -342,6 +348,12 @@ func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteI
 	if !newerThan.IsZero() {
 		queryBuilder.WriteString(" AND created_at > ?")
 		params = append(params, newerThan)
+	}
+
+	if search != "" {
+		queryBuilder.WriteString(" AND (name LIKE ? OR description LIKE ? OR type_name LIKE ?)")
+		searchPattern := "%" + search + "%"
+		params = append(params, searchPattern, searchPattern, searchPattern)
 	}
 
 	queryBuilder.WriteString(" ORDER BY created_at DESC LIMIT ? OFFSET ?")

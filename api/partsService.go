@@ -187,10 +187,10 @@ func (s *PartsService) GetAllParts(limit, offset int) ([]Part, error) {
 }
 
 // GetFilteredParts retrieves filtered parts from the database
-func (s *PartsService) GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time) ([]Part, error) {
-	log.Printf("[GetFilteredParts] Called with limit=%d, offset=%d, typeFilter=%s, siteID=%d, newerThan=%v",
-		limit, offset, typeFilter, siteID, newerThan)
-	parts, err := s.sqlClient.GetFilteredParts(limit, offset, typeFilter, siteID, newerThan)
+func (s *PartsService) GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time, search string) ([]Part, error) {
+	log.Printf("[GetFilteredParts] Called with limit=%d, offset=%d, typeFilter=%s, siteID=%d, newerThan=%v, search=%s",
+		limit, offset, typeFilter, siteID, newerThan, search)
+	parts, err := s.sqlClient.GetFilteredParts(limit, offset, typeFilter, siteID, newerThan, search)
 	if err != nil {
 		log.Printf("[GetFilteredParts] ERROR: %v", err)
 		return nil, err
@@ -209,14 +209,14 @@ func (s *PartsService) GetTotalPartsCount() (int, error) {
 	return count, nil
 }
 
-func (s *PartsService) GetFilteredPartsCount(typeFilter string, siteID int, newerThan time.Time) (int, error) {
-	count, err := s.sqlClient.GetFilteredPartsCount(typeFilter, siteID, newerThan)
+func (s *PartsService) GetFilteredPartsCount(typeFilter string, siteID int, newerThan time.Time, search string) (int, error) {
+	count, err := s.sqlClient.GetFilteredPartsCount(typeFilter, siteID, newerThan, search)
 	if err != nil {
 		log.Printf("[GetFilteredPartsCount] ERROR: %v", err)
 		return 0, err
 	}
-	log.Printf("[GetFilteredPartsCount] Total count: %d (typeFilter=%s, siteID=%d, newerThan=%v)",
-		count, typeFilter, siteID, newerThan)
+	log.Printf("[GetFilteredPartsCount] Total count: %d (typeFilter=%s, siteID=%d, newerThan=%v, search=%s)",
+		count, typeFilter, siteID, newerThan, search)
 	return count, nil
 }
 

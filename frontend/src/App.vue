@@ -1,10 +1,6 @@
 <template>
     <n-message-provider>
-        <div
-            id="app"
-            class="min-h-screen bg-gray-50"
-            @click="handleGlobalClick"
-        >
+        <div id="app" class="min-h-screen bg-gray-50">
             <!-- Navigation Header -->
             <nav class="bg-white shadow-sm border-b border-gray-200">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -59,7 +55,7 @@
                         <!-- Mobile menu button -->
                         <div class="sm:hidden flex items-center">
                             <button
-                                @click="mobileMenuOpen = !mobileMenuOpen"
+                                @click.stop="toggleMobileMenu"
                                 type="button"
                                 class="bg-white inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
                                 aria-controls="mobile-menu"
@@ -106,7 +102,7 @@
                     <div class="pt-2 pb-3 space-y-1">
                         <router-link
                             to="/"
-                            @click="mobileMenuOpen = false"
+                            @click="closeMobileMenu"
                             class="bg-primary-50 border-primary-500 text-primary-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
                             :class="
                                 $route.name === 'Home'
@@ -119,7 +115,7 @@
 
                         <router-link
                             to="/parts"
-                            @click="mobileMenuOpen = false"
+                            @click="closeMobileMenu"
                             class="border-transparent text-gray-600 hover:text-gray-800 hover:bg-gray-50 hover:border-gray-300 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
                             :class="
                                 $route.name === 'Parts'
@@ -131,7 +127,7 @@
                         </router-link>
                         <router-link
                             to="/browse"
-                            @click="mobileMenuOpen = false"
+                            @click="closeMobileMenu"
                             class="border-transparent text-gray-600 hover:text-gray-800 hover:bg-gray-50 hover:border-gray-300 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
                             :class="
                                 $route.name === 'Browse'
@@ -224,24 +220,40 @@
 </template>
 
 <script>
-import { NMessageProvider } from "naive-ui";
+import { NMessageProvider, NConfigProvider } from "naive-ui";
+import { ref, provide, onMounted, onUnmounted } from "vue";
 
 export default {
     name: "App",
     components: {
         NMessageProvider,
+        NConfigProvider,
     },
-    data() {
-        return {
-            mobileMenuOpen: false,
-            loading: false,
-            notifications: [],
+    setup() {
+        const mobileMenuOpen = ref(false);
+        const loading = ref(false);
+        const notifications = ref([]);
+
+        onMounted(() => {
+            document.addEventListener("click", handleOutsideClick);
+        });
+
+        onUnmounted(() => {
+            document.removeEventListener("click", handleOutsideClick);
+        });
+
+        const toggleMobileMenu = (event) => {
+            event.stopPropagation();
+            mobileMenuOpen.value = !mobileMenuOpen.value;
         };
-    },
-    methods: {
-        showNotification(message, type = "info", duration = 5000) {
+
+        const closeMobileMenu = () => {
+            mobileMenuOpen.value = false;
+        };
+
+        const showNotification = (message, type = "info", duration = 5000) => {
             const id = Date.now();
-            this.notifications.push({
+            notifications.value.push({
                 id,
                 message,
                 type,
@@ -249,33 +261,43 @@ export default {
 
             if (duration > 0) {
                 setTimeout(() => {
-                    this.removeNotification(id);
+                    removeNotification(id);
                 }, duration);
             }
-        },
-
-        removeNotification(id) {
-            this.notifications = this.notifications.filter((n) => n.id !== id);
-        },
-
-        setLoading(loading) {
-            this.loading = loading;
-        },
-    },
-    provide() {
-        return {
-            showNotification: this.showNotification,
-            setLoading: this.setLoading,
         };
-    },
-    mounted() {
-        // Close mobile menu when clicking outside
-        document.addEventListener("click", (event) => {
+
+        const removeNotification = (id) => {
+            notifications.value = notifications.value.filter(
+                (n) => n.id !== id,
+            );
+        };
+
+        const setLoading = (value) => {
+            loading.value = value;
+        };
+
+        const handleOutsideClick = (event) => {
             const nav = document.querySelector("nav");
-            if (nav && !nav.contains(event.target)) {
-                this.mobileMenuOpen = false;
+            const menuButton = nav?.querySelector("button");
+            if (mobileMenuOpen.value && nav && !nav.contains(event.target)) {
+                mobileMenuOpen.value = false;
             }
-        });
+        };
+
+        provide("showNotification", showNotification);
+        provide("setLoading", setLoading);
+
+        return {
+            mobileMenuOpen,
+            loading,
+            notifications,
+            toggleMobileMenu,
+            closeMobileMenu,
+            showNotification,
+            removeNotification,
+            setLoading,
+            handleOutsideClick,
+        };
     },
 };
 </script>

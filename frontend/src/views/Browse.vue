@@ -698,6 +698,9 @@ export default defineComponent({
         const sites = ref([]);
         const loading = ref(false);
         const windowWidth = ref(window.innerWidth);
+        const handleResize = () => {
+            windowWidth.value = window.innerWidth;
+        };
         const searchQuery = ref("");
         const viewMode = ref("grid");
         const currentPage = ref(1);
@@ -724,6 +727,9 @@ export default defineComponent({
         const themeOverrides = {
             common: {
                 primaryColor: "#18a058",
+                primaryColorHover: "#36ad6a",
+                primaryColorPressed: "#0c7a43",
+                primaryColorSuppl: "#36ad6a",
             },
         };
 
@@ -899,9 +905,6 @@ export default defineComponent({
             loadSites();
 
             // Add window resize listener
-            const handleResize = () => {
-                windowWidth.value = window.innerWidth;
-            };
             window.addEventListener("resize", handleResize);
         });
 

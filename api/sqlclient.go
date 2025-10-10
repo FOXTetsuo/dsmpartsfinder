@@ -220,11 +220,12 @@ func (c *SQLClient) DeleteSite(id int) error {
 }
 
 // CreatePart creates a new part in the database
-func (c *SQLClient) CreatePart(partID, description, typeName, name, imageBase64, url string, siteID int, price string) (*Part, error) {
+func (c *SQLClient) CreatePart(partID, description, typeName, name, imageBase64, url string, siteID int, price string, creationDate time.Time) (*Part, error) {
+	formattedDate := creationDate.Format("2006-01-02 15:04:05")
 	result, err := c.db.Exec(`
 		INSERT INTO parts (part_id, description, type_name, name, image_base64, url, site_id, price, last_seen, creation_date)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
-	`, partID, description, typeName, name, imageBase64, url, siteID, price, time.Now())
+	`, partID, description, typeName, name, imageBase64, url, siteID, price, formattedDate)
 	if err != nil {
 		logError("Failed to create part", err)
 		return nil, err
@@ -256,14 +257,21 @@ func (c *SQLClient) CreatePart(partID, description, typeName, name, imageBase64,
 func (c *SQLClient) GetPartByID(id int) (*Part, error) {
 	var part Part
 	var price sql.NullString
+	var creationDate sql.NullString
 	err := c.db.QueryRow(`
 		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, price, created_at, updated_at, last_seen, creation_date
 		FROM parts WHERE id = ?
 	`, id).Scan(
 		&part.ID, &part.PartID, &part.Description, &part.TypeName,
 		&part.Name, &part.ImageBase64, &part.URL, &part.SiteID, &price,
-		&part.CreatedAt, &part.UpdatedAt, &part.LastSeen, &part.CreationDate,
+		&part.CreatedAt, &part.UpdatedAt, &part.LastSeen, &creationDate,
 	)
+	if creationDate.Valid {
+		parsedTime, err := time.Parse("2006-01-02 15:04:05", creationDate.String)
+		if err == nil {
+			part.CreationDate = &parsedTime
+		}
+	}
 
 	if price.Valid {
 		part.Price = price.String
@@ -301,11 +309,18 @@ func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, err
 	for rows.Next() {
 		var part Part
 		var price sql.NullString
+		var creationDate sql.NullString
 		err := rows.Scan(
 			&part.ID, &part.PartID, &part.Description, &part.TypeName,
 			&part.Name, &part.ImageBase64, &part.URL, &part.SiteID, &price,
-			&part.CreatedAt, &part.UpdatedAt, &part.LastSeen, &part.CreationDate,
+			&part.CreatedAt, &part.UpdatedAt, &part.LastSeen, &creationDate,
 		)
+		if creationDate.Valid {
+			parsedTime, err := time.Parse("2006-01-02 15:04:05", creationDate.String)
+			if err == nil {
+				part.CreationDate = &parsedTime
+			}
+		}
 		if err != nil {
 			logError("Failed to scan part data", err)
 			return nil, err
@@ -331,8 +346,7 @@ func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteI
 	params := make([]interface{}, 0)
 
 	queryBuilder.WriteString(`
-		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, price, created_at, updated_at, last_seen,
-		CASE WHEN creation_date IS NULL THEN created_at ELSE creation_date END as creation_date
+		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, price, created_at, updated_at, last_seen, creation_date
 		FROM parts
 		WHERE 1=1`)
 
@@ -361,9 +375,9 @@ func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteI
 	switch sortBy {
 	case "creation_date_asc", "creation_date_desc":
 		if sortDesc {
-			queryBuilder.WriteString(" ORDER BY COALESCE(creation_date, created_at) DESC")
+			queryBuilder.WriteString(" ORDER BY creation_date DESC")
 		} else {
-			queryBuilder.WriteString(" ORDER BY COALESCE(creation_date, created_at) ASC")
+			queryBuilder.WriteString(" ORDER BY creation_date ASC")
 		}
 	case "name_asc", "name_desc":
 		if sortDesc {
@@ -436,11 +450,18 @@ func (c *SQLClient) GetAllParts(limit, offset int) ([]Part, error) {
 	for rows.Next() {
 		var part Part
 		var price sql.NullString
+		var creationDate sql.NullString
 		err := rows.Scan(
 			&part.ID, &part.PartID, &part.Description, &part.TypeName,
 			&part.Name, &part.ImageBase64, &part.URL, &part.SiteID, &price,
-			&part.CreatedAt, &part.UpdatedAt, &part.LastSeen, &part.CreationDate,
+			&part.CreatedAt, &part.UpdatedAt, &part.LastSeen, &creationDate,
 		)
+		if creationDate.Valid {
+			parsedTime, err := time.Parse("2006-01-02 15:04:05", creationDate.String)
+			if err == nil {
+				part.CreationDate = &parsedTime
+			}
+		}
 		if err != nil {
 			logError("Failed to scan part data", err)
 			return nil, err

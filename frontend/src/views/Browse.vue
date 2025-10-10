@@ -576,13 +576,7 @@
                                     Site {{ selectedPart.site_id }}
                                 </n-descriptions-item>
                                 <n-descriptions-item label="Added">
-                                    {{ formatDate(selectedPart.created_at) }}
-                                </n-descriptions-item>
-                                <n-descriptions-item label="Last Seen">
-                                    {{ formatDate(selectedPart.last_seen) }}
-                                </n-descriptions-item>
-                                <n-descriptions-item label="Updated">
-                                    {{ formatDate(selectedPart.updated_at) }}
+                                    {{ formatDate(selectedPart.creation_date) }}
                                 </n-descriptions-item>
                             </n-descriptions>
                         </n-card>
@@ -719,7 +713,7 @@ export default defineComponent({
             showOnlyNew: false,
         });
 
-        const sortBy = ref("newest");
+        const sortBy = ref("creation_date_asc");
 
         const themeOverrides = {
             common: {
@@ -759,13 +753,13 @@ export default defineComponent({
 
         // Sort options
         const sortOptions = [
+            { label: "Creation date newest", value: "creation_date_desc" },
+            { label: "Creation date oldest", value: "creation_date_asc" },
+            { label: "Name (A-Z)", value: "name_asc" },
+            { label: "Name (Z-A)", value: "name_desc" },
             { label: "Newest First", value: "newest" },
             { label: "Oldest First", value: "oldest" },
             { label: "Recently Seen", value: "recent_seen" },
-            { label: "Creation Date (Newest)", value: "creation_date_desc" },
-            { label: "Creation Date (Oldest)", value: "creation_date_asc" },
-            { label: "Name (A-Z)", value: "name_asc" },
-            { label: "Name (Z-A)", value: "name_desc" },
         ];
 
         // Check if there are active filters

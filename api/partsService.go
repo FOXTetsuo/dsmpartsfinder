@@ -121,6 +121,7 @@ func (s *PartsService) FetchAndStoreParts(ctx context.Context, siteID int, param
 			part.URL,
 			part.SiteID,
 			part.Price,
+			part.CreationDate,
 		)
 		if err != nil {
 			// Log the error but continue with other parts

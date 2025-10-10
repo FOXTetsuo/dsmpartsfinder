@@ -109,12 +109,8 @@ func (c *KleinanzeigenClient) fetchSinglePage(ctx context.Context, searchURL str
 	}
 
 	// Set headers to mimic a browser
-	// Note: Don't set Accept-Encoding - Go's http.Client will handle gzip decompression automatically
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Set("Connection", "keep-alive")
-	req.Header.Set("Upgrade-Insecure-Requests", "1")
 
 	// Execute request
 	resp, err := c.httpClient.Do(req)
@@ -132,6 +128,13 @@ func (c *KleinanzeigenClient) fetchSinglePage(ctx context.Context, searchURL str
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
+
+	// Log a sample of the HTML for debugging
+	htmlSample := string(bodyBytes)
+	if len(htmlSample) > 1000 {
+		htmlSample = htmlSample[:1000]
+	}
+	log.Printf("[KleinanzeigenClient] HTML sample:\n%s", htmlSample)
 
 	// Parse HTML
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(bodyBytes)))
@@ -198,20 +201,41 @@ func (c *KleinanzeigenClient) extractPart(ctx context.Context, s *goquery.Select
 		SiteID: c.siteID,
 	}
 
-	// Extract creation date from calendar icon
-	dateText := s.Find(".iconlist-element-icon-calendar-open").Text()
-	dateText = strings.TrimSpace(dateText)
+	// Extract creation date from the date container
+	dateContainer := s.Find(".aditem-main--top--right")
+	dateText := strings.TrimSpace(dateContainer.Text())
+
 	if dateText != "" {
 		var creationDate time.Time
+		now := time.Now()
 
-		switch dateText {
-		case "Heute":
-			creationDate = time.Now()
-		case "Gestern":
-			creationDate = time.Now().AddDate(0, 0, -1)
-		default:
-			// Try parsing date formats like "DD.MM.YYYY" or "DD.MM.YY"
-			layouts := []string{"02.01.2006", "02.01.06"}
+		// Handle "Heute, HH:mm" format
+		if strings.HasPrefix(dateText, "Heute, ") {
+			timeStr := strings.TrimPrefix(dateText, "Heute, ")
+			if t, err := time.Parse("15:04", timeStr); err == nil {
+				creationDate = time.Date(
+					now.Year(), now.Month(), now.Day(),
+					t.Hour(), t.Minute(), 0, 0, now.Location(),
+				)
+			}
+		} else if strings.HasPrefix(dateText, "Gestern, ") {
+			// Handle "Gestern, HH:mm" format
+			timeStr := strings.TrimPrefix(dateText, "Gestern, ")
+			if t, err := time.Parse("15:04", timeStr); err == nil {
+				yesterday := now.AddDate(0, 0, -1)
+				creationDate = time.Date(
+					yesterday.Year(), yesterday.Month(), yesterday.Day(),
+					t.Hour(), t.Minute(), 0, 0, now.Location(),
+				)
+			}
+		} else if strings.Contains(dateText, ".") {
+			// Handle "DD.MM.YYYY" format
+			layouts := []string{
+				"02.01.2006",        // DD.MM.YYYY
+				"2.1.2006",          // D.M.YYYY
+				"02.01.2006, 15:04", // DD.MM.YYYY, HH:mm (fallback)
+				"2.1.2006, 15:04",   // D.M.YYYY, HH:mm (fallback)
+			}
 			for _, layout := range layouts {
 				if t, err := time.Parse(layout, dateText); err == nil {
 					creationDate = t
@@ -222,7 +246,11 @@ func (c *KleinanzeigenClient) extractPart(ctx context.Context, s *goquery.Select
 
 		if !creationDate.IsZero() {
 			part.CreationDate = creationDate
+		} else {
+			log.Printf("[KleinanzeigenClient] WARNING: Could not parse date text '%s'", dateText)
 		}
+	} else {
+		log.Printf("[KleinanzeigenClient] WARNING: No date text found")
 	}
 
 	// Extract ad ID (part ID)

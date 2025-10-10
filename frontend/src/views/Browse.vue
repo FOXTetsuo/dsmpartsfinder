@@ -310,10 +310,7 @@
                         @click="selectPart(part)"
                     >
                         <!-- NEW Badge -->
-                        <div
-                            v-if="isNewPart(part.created_at)"
-                            class="new-badge"
-                        >
+                        <div v-if="isNewPart(part)" class="new-badge">
                             <span class="new-text">NEW!</span>
                         </div>
 
@@ -409,10 +406,7 @@
                         @click="selectPart(part)"
                     >
                         <!-- NEW Badge for List View -->
-                        <div
-                            v-if="isNewPart(part.created_at)"
-                            class="new-badge-list"
-                        >
+                        <div v-if="isNewPart(part)" class="new-badge-list">
                             <span class="new-text">NEW!</span>
                         </div>
 
@@ -695,16 +689,16 @@ export default defineComponent({
         const searchQuery = ref("");
         const viewMode = ref("grid");
         const currentPage = ref(1);
-        const pageSize = ref(20);
+        const pageSize = ref(24);
         const totalItems = ref(0);
         const showDetailsDrawer = ref(false);
         const selectedPart = ref(null);
 
         // Page size options
         const pageSizeOptions = [
-            { label: "20 per page", value: 20 },
-            { label: "50 per page", value: 50 },
-            { label: "100 per page", value: 100 },
+            { label: "24 per page", value: 24 },
+            { label: "48 per page", value: 48 },
+            { label: "96 per page", value: 96 },
         ];
 
         const filters = ref({
@@ -854,9 +848,9 @@ export default defineComponent({
         };
 
         // Check if part is new (within 72 hours)
-        const isNewPart = (createdAt) => {
-            if (!createdAt) return false;
-            const created = new Date(createdAt);
+        const isNewPart = (part) => {
+            if (!part || !part.creation_date) return false;
+            const created = new Date(part.creation_date);
             const now = new Date();
             const hoursDiff = (now - created) / (1000 * 60 * 60);
             return hoursDiff <= 72;

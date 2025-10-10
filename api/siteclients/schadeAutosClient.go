@@ -56,6 +56,7 @@ type stockPart struct {
 	Code          string        `json:"code"`
 	Descr         string        `json:"descr"`
 	TypeName      string        `json:"typeName"`
+	EnterDate     string        `json:"enterDate"`
 	Name          string        `json:"name"`
 	Picture       string        `json:"picture"`
 	MakeName      string        `json:"makeName"`

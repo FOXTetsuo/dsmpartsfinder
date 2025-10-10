@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	. "dsmpartsfinder-api/models"
+
 	_ "github.com/glebarez/go-sqlite"
 )
 

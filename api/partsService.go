@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	. "dsmpartsfinder-api/models"
 	"dsmpartsfinder-api/siteclients"
 )
 

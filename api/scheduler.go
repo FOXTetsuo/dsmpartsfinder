@@ -76,7 +76,7 @@ func (s *Scheduler) fetchAllParts() {
 		BaseModel:   "Eclipse",
 		Model:       "",
 		YearFrom:    1989,
-		YearTo:      2012,
+		YearTo:      2000,
 		Offset:      0,
 		Limit:       10000, // High limit to get everything
 	}

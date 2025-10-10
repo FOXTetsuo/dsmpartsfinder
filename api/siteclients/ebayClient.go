@@ -231,11 +231,11 @@ func (c *EbayClient) FetchParts(ctx context.Context, params SearchParams) ([]Par
 			part := Part{
 				ID:          item.ItemID,
 				Description: item.Title,
-				TypeName:    "", // eBay doesn't provide type name directly
-				Name:        item.Title,
-				URL:         item.ItemWebURL,
-				SiteID:      c.siteID,
-				Price:       item.Price.Value,
+				// TypeName:    "", // eBay doesn't provide type name directly
+				Name:   item.Title,
+				URL:    item.ItemWebURL,
+				SiteID: c.siteID,
+				Price:  "€ " + item.Price.Value,
 			}
 			// Fetch and convert image to base64
 			if len(item.ThumbnailImages) > 0 && item.ThumbnailImages[0].ImageURL != "" {

@@ -52,10 +52,10 @@ type schadeAutosResponse struct {
 
 // stockPart represents an individual part in the response
 type stockPart struct {
-	Prefix        string        `json:"prefix"`
-	Code          string        `json:"code"`
-	Descr         string        `json:"descr"`
-	TypeName      string        `json:"typeName"`
+	Prefix string `json:"prefix"`
+	Code   string `json:"code"`
+	Descr  string `json:"descr"`
+	// TypeName      string        `json:"typeName"`
 	EnterDate     string        `json:"enterDate"`
 	Name          string        `json:"name"`
 	Picture       string        `json:"picture"`
@@ -135,16 +135,6 @@ func (c *SchadeAutosClient) FetchParts(ctx context.Context, params SearchParams)
 	req.Header.Set("Origin", c.baseURL)
 	req.Header.Set("Referer", fmt.Sprintf("%s/parts/eng/car-parts", c.baseURL))
 
-	// Print request as cURL command
-	curlCmd := fmt.Sprintf("curl -X POST '%s'", apiURL)
-	for key, values := range req.Header {
-		for _, value := range values {
-			curlCmd += fmt.Sprintf(" \\\n  -H '%s: %s'", key, value)
-		}
-	}
-	curlCmd += fmt.Sprintf(" \\\n  --data '%s'", formData.Encode())
-	fmt.Printf("Request as cURL:\n%s\n\n", curlCmd)
-
 	// Execute request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -172,11 +162,11 @@ func (c *SchadeAutosClient) FetchParts(ctx context.Context, params SearchParams)
 		part := Part{
 			ID:          partID,
 			Description: stockPart.Descr,
-			TypeName:    stockPart.TypeName,
-			Name:        stockPart.Name,
-			URL:         c.buildPartURL(partID, &stockPart),
-			SiteID:      c.siteID,
-			Price:       stockPart.Price,
+			// TypeName:    stockPart.TypeName,
+			Name:   stockPart.Name,
+			URL:    c.buildPartURL(partID, &stockPart),
+			SiteID: c.siteID,
+			Price:  "€ " + stockPart.Price,
 		}
 
 		// Fetch and convert image to base64

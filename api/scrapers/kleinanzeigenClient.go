@@ -226,12 +226,11 @@ func (c *KleinanzeigenClient) extractPart(ctx context.Context, s *goquery.Select
 	description = strings.TrimSpace(description)
 	part.Description = description
 
-	// Extract price (optional)
 	price := s.Find("p.aditem-main--middle--price-shipping--price").Text()
 	price = strings.TrimSpace(price)
 	part.Price = price
 
-	part.TypeName = "Eclipse (D30)"
+	// part.TypeName = "Eclipse (D30)"
 
 	// Extract image URL
 	imgSrc, exists := s.Find(".imagebox img").Attr("src")

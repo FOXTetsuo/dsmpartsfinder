@@ -61,8 +61,8 @@
                                 @update:value="applyFilters"
                             />
 
-                            <!-- Type Filter -->
-                            <n-select
+                            <!-- Type filter -->
+                            <!-- <n-select
                                 v-model:value="filters.typeName"
                                 :options="typeOptions"
                                 placeholder="All Types"
@@ -70,7 +70,7 @@
                                 filterable
                                 style="width: 200px"
                                 @update:value="applyFilters"
-                            />
+                            /> -->
 
                             <!-- Sort By -->
                             <n-select
@@ -85,8 +85,9 @@
                             <n-checkbox
                                 v-model:checked="filters.showOnlyNew"
                                 @update:checked="applyFilters"
+                                class="only-new-checkbox"
                             >
-                                Only New (72h)
+                                Only New items
                             </n-checkbox>
 
                             <!-- View Mode Toggle -->
@@ -234,7 +235,7 @@
                             >
                                 Site: {{ getSiteName(filters.siteId) }}
                             </n-tag>
-                            <n-tag
+                            <!-- <n-tag
                                 v-if="filters.typeName"
                                 closable
                                 @close="
@@ -243,7 +244,7 @@
                                 "
                             >
                                 Type: {{ filters.typeName }}
-                            </n-tag>
+                            </n-tag> -->
                             <n-tag
                                 v-if="searchQuery"
                                 closable
@@ -385,9 +386,9 @@
                                     <n-tag size="small" type="default">
                                         {{ getSiteName(part.site_id) }}
                                     </n-tag>
-                                    <n-tag size="small" type="info">
+                                    <!-- <n-tag size="small" type="info">
                                         {{ part.type_name }}
-                                    </n-tag>
+                                    </n-tag> -->
                                     <!-- (Site tag replaced above with site name) -->
                                 </n-space>
                             </div>
@@ -461,9 +462,9 @@
                                     <n-tag size="small" type="default">
                                         {{ getSiteName(part.site_id) }}
                                     </n-tag>
-                                    <n-tag size="small" type="info">
+                                    <!-- <n-tag size="small" type="info">
                                         {{ part.type_name }}
-                                    </n-tag>
+                                    </n-tag> -->
                                     <n-tag
                                         v-if="part.price"
                                         size="small"
@@ -568,9 +569,9 @@
                                 <n-descriptions-item label="Part ID">
                                     {{ selectedPart.part_id }}
                                 </n-descriptions-item>
-                                <n-descriptions-item label="Type">
+                                <!-- <n-descriptions-item label="Type">
                                     {{ selectedPart.type_name }}
-                                </n-descriptions-item>
+                                </n-descriptions-item> -->
                                 <n-descriptions-item label="Site">
                                     Site {{ selectedPart.site_id }}
                                 </n-descriptions-item>
@@ -714,7 +715,7 @@ export default defineComponent({
 
         const filters = ref({
             siteId: null,
-            typeName: null,
+            // typeName: null,
             showOnlyNew: false,
         });
 
@@ -741,9 +742,9 @@ export default defineComponent({
         const typeOptions = computed(() => {
             const types = new Set();
             parts.value.forEach((part) => {
-                if (part.type_name) {
-                    types.add(part.type_name);
-                }
+                // if (part.type_name) {
+                //     types.add(part.type_name);
+                // }
             });
             return [
                 { label: "All Types", value: null },
@@ -769,7 +770,7 @@ export default defineComponent({
         const hasActiveFilters = computed(() => {
             return (
                 filters.value.siteId !== null ||
-                filters.value.typeName !== null ||
+                // filters.value.typeName !== null ||
                 filters.value.showOnlyNew ||
                 searchQuery.value.length > 0
             );
@@ -800,7 +801,7 @@ export default defineComponent({
                     limit: pageSize.value,
                     offset: offset,
                     site_id: filters.value.siteId,
-                    type_name: filters.value.typeName,
+                    // type_name: filters.value.typeName,
                     search: searchQuery.value || undefined,
                     sort_by: sortBy.value,
                     newer_than_hours: filters.value.showOnlyNew
@@ -882,7 +883,7 @@ export default defineComponent({
             searchQuery.value = "";
             filters.value = {
                 siteId: null,
-                typeName: null,
+                // typeName: null,
                 showOnlyNew: false,
             };
             sortBy.value = "newest";
@@ -1194,6 +1195,22 @@ export default defineComponent({
         transform: rotate(12deg) scale(1);
         opacity: 1;
     }
+}
+
+.only-new-checkbox {
+    display: flex;
+    align-items: center;
+    height: 34px; /* Match height of other controls */
+}
+
+.only-new-checkbox :deep(.n-checkbox-box) {
+    margin-top: 0;
+}
+
+.only-new-checkbox :deep(.n-checkbox__label) {
+    display: flex;
+    align-items: center;
+    height: 100%;
 }
 
 @media (max-width: 768px) {

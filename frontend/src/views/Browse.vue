@@ -516,14 +516,13 @@
                         <n-pagination
                             v-model:page="currentPage"
                             :page-count="totalPages"
-                            :on-update:page="loadParts"
-                            show-quick-jumper
+                            :page-size="pageSize"
+                            :item-count="totalItems"
+                            @update:page="handlePageChange"
                         />
                         <n-text>
                             {{ (currentPage - 1) * pageSize + 1 }} -
-                            {{
-                                Math.min(currentPage * pageSize, totalItems)
-                            }}
+                            {{ Math.min(currentPage * pageSize, totalItems) }}
                             of {{ totalItems }}
                         </n-text>
                     </n-space>
@@ -781,26 +780,50 @@ export default defineComponent({
             return Math.ceil(totalItems.value / pageSize.value);
         });
 
+        // Handle page change
+        const handlePageChange = (page) => {
+            currentPage.value = page;
+            loadParts();
+        };
+
         // Load parts from API
         const loadParts = async () => {
             loading.value = true;
             try {
                 const offset = (currentPage.value - 1) * pageSize.value;
-                const response = await axios.get("/api/parts", {
-                    params: {
-                        limit: pageSize.value,
-                        offset: offset,
-                        site_id: filters.value.siteId,
-                        type_name: filters.value.typeName,
-                        search: searchQuery.value || undefined,
-                        sort_by: sortBy.value,
-                    },
+                console.log("Making API request with params:", {
+                    currentPage: currentPage.value,
+                    pageSize: pageSize.value,
+                    calculatedOffset: offset,
+                });
+                const params = {
+                    limit: pageSize.value,
+                    offset: offset,
+                    site_id: filters.value.siteId,
+                    type_name: filters.value.typeName,
+                    search: searchQuery.value || undefined,
+                    sort_by: sortBy.value,
+                    newer_than_hours: filters.value.showOnlyNew
+                        ? 72
+                        : undefined,
+                };
+                console.log("Request params:", params);
+                const response = await axios.get("/api/parts", { params });
+                console.log("API Response:", {
+                    receivedItems: response.data.data.length,
+                    firstItemId: response.data.data[0]?.id,
+                    lastItemId:
+                        response.data.data[response.data.data.length - 1]?.id,
                 });
                 parts.value = response.data.data || [];
                 totalItems.value = response.data.total || 0;
-                message.success(
-                    `Showing ${parts.value.length} of ${totalItems.value} parts`,
-                );
+                console.log("Pagination Debug:", {
+                    totalItems: totalItems.value,
+                    pageSize: pageSize.value,
+                    totalPages: Math.ceil(totalItems.value / pageSize.value),
+                    currentPage: currentPage.value,
+                    responseTotal: response.data.total,
+                });
             } catch (error) {
                 console.error("Error loading parts:", error);
                 message.error("Failed to load parts");
@@ -915,6 +938,7 @@ export default defineComponent({
             debouncedSearch,
             selectPart,
             isNewPart,
+            handlePageChange,
         };
     },
 });

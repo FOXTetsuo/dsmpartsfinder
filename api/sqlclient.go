@@ -274,6 +274,51 @@ func (c *SQLClient) GetPartByID(id int) (*Part, error) {
 	return &part, nil
 }
 
+// GetPartsBySiteID retrieves all parts for a specific site
+func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, error) {
+	query := `
+		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, price, created_at, updated_at, last_seen
+		FROM parts
+		WHERE site_id = ?
+		ORDER BY created_at DESC
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := c.db.Query(query, siteID, limit, offset)
+	if err != nil {
+		logError(fmt.Sprintf("Failed to query parts for site ID %d", siteID), err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var parts []Part
+	for rows.Next() {
+		var part Part
+		var price sql.NullString
+		err := rows.Scan(
+			&part.ID, &part.PartID, &part.Description, &part.TypeName,
+			&part.Name, &part.ImageBase64, &part.URL, &part.SiteID, &price,
+			&part.CreatedAt, &part.UpdatedAt, &part.LastSeen,
+		)
+		if err != nil {
+			logError("Failed to scan part data", err)
+			return nil, err
+		}
+		if price.Valid {
+			part.Price = price.String
+		}
+		parts = append(parts, part)
+	}
+
+	if err = rows.Err(); err != nil {
+		logError("Error iterating parts", err)
+		return nil, err
+	}
+
+	logSuccess(fmt.Sprintf("Retrieved %d parts for site ID %d", len(parts), siteID))
+	return parts, nil
+}
+
 // GetFilteredParts retrieves filtered parts from the database
 func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time) ([]Part, error) {
 	queryBuilder := strings.Builder{}

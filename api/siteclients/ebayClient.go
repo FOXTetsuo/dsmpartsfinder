@@ -220,16 +220,6 @@ func (c *EbayClient) FetchParts(ctx context.Context, params SearchParams) ([]Par
 			return nil, fmt.Errorf(msg)
 		}
 
-		// Log the resp.Body
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response body for logging: %w", err)
-		}
-		fmt.Printf("eBay API response body: %s\n", string(bodyBytes))
-
-		// Reset resp.Body for decoding
-		resp.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
-
 		var apiResponse EbayBrowseResponse
 		if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
 			return nil, fmt.Errorf("failed to decode response: %w", err)

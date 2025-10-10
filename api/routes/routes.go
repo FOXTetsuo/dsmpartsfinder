@@ -31,10 +31,12 @@ type PartsService interface {
 	FetchAndStoreParts(ctx context.Context, siteID int, params siteclients.SearchParams) ([]Part, error)
 	GetRegisteredSiteIDs() []int
 	GetAllParts(limit, offset int) ([]Part, error)
+	GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time) ([]Part, error)
 	GetPartByID(id int) (*Part, error)
 	GetPartsBySiteID(siteID, limit, offset int) ([]Part, error)
 	DeletePartsBySiteID(siteID int) error
 	GetTotalPartsCount() (int, error)
+	GetFilteredPartsCount(typeFilter string, siteID int, newerThan time.Time) (int, error)
 }
 
 func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsService) {
@@ -237,128 +239,221 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 		api.GET("/parts", func(c *gin.Context) {
 			limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 			offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+			typeFilter := c.Query("type")
+			siteID, _ := strconv.Atoi(c.DefaultQuery("site_id", "0"))
 
-			log.Printf("[GET /api/parts] Called with limit=%d, offset=%d", limit, offset)
+			// If any filter is specified, use filtered endpoint
+			if typeFilter != "" || siteID != 0 || c.Query("newer_than_hours") != "" {
+				var newerThan time.Time
+				if c.Query("newer_than_hours") != "" {
+					hours, _ := strconv.Atoi(c.DefaultQuery("newer_than_hours", "72"))
+					newerThan = time.Now().Add(-time.Duration(hours) * time.Hour)
+				}
 
-			parts, err := partsService.GetAllParts(limit, offset)
-			if err != nil {
-				log.Printf("[GET /api/parts] ERROR: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to query parts",
-					"details": err.Error(),
+				log.Printf("[GET /api/parts] Called with filters: limit=%d, offset=%d, type=%s, site_id=%d, newer_than=%v",
+					limit, offset, typeFilter, siteID, newerThan)
+
+				parts, err := partsService.GetFilteredParts(limit, offset, typeFilter, siteID, newerThan)
+				if err != nil {
+					log.Printf("[GET /api/parts] ERROR: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to query parts",
+						"details": err.Error(),
+					})
+					return
+				}
+
+				total, err := partsService.GetFilteredPartsCount(typeFilter, siteID, newerThan)
+				if err != nil {
+					log.Printf("[GET /api/parts] ERROR getting filtered count: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to get total parts count",
+						"details": err.Error(),
+					})
+					return
+				}
+
+				c.JSON(http.StatusOK, gin.H{
+					"data":    parts,
+					"message": "Filtered parts retrieved successfully",
+					"total":   total,
+					"limit":   limit,
+					"offset":  offset,
 				})
 				return
 			}
 
-			total, err := partsService.GetTotalPartsCount()
-			if err != nil {
-				log.Printf("[GET /api/parts] ERROR getting total count: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to get total parts count",
-					"details": err.Error(),
+			// Default unfiltered behavior
+			// GET /api/parts - Get all parts with pagination
+			api.GET("/parts", func(c *gin.Context) {
+				limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+				offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+				typeFilter := c.Query("type")
+				siteID, _ := strconv.Atoi(c.DefaultQuery("site_id", "0"))
+
+				// If any filter is specified, use filtered endpoint
+				if typeFilter != "" || siteID != 0 || c.Query("newer_than_hours") != "" {
+					var newerThan time.Time
+					if c.Query("newer_than_hours") != "" {
+						hours, _ := strconv.Atoi(c.DefaultQuery("newer_than_hours", "72"))
+						newerThan = time.Now().Add(-time.Duration(hours) * time.Hour)
+					}
+
+					log.Printf("[GET /api/parts] Called with filters: limit=%d, offset=%d, type=%s, site_id=%d, newer_than=%v",
+						limit, offset, typeFilter, siteID, newerThan)
+
+					parts, err := partsService.GetFilteredParts(limit, offset, typeFilter, siteID, newerThan)
+					if err != nil {
+						log.Printf("[GET /api/parts] ERROR: %v", err)
+						c.JSON(http.StatusInternalServerError, gin.H{
+							"error":   "Failed to query parts",
+							"details": err.Error(),
+						})
+						return
+					}
+
+					total, err := partsService.GetFilteredPartsCount(typeFilter, siteID, newerThan)
+					if err != nil {
+						log.Printf("[GET /api/parts] ERROR getting filtered count: %v", err)
+						c.JSON(http.StatusInternalServerError, gin.H{
+							"error":   "Failed to get total parts count",
+							"details": err.Error(),
+						})
+						return
+					}
+
+					c.JSON(http.StatusOK, gin.H{
+						"data":    parts,
+						"message": "Filtered parts retrieved successfully",
+						"total":   total,
+						"limit":   limit,
+						"offset":  offset,
+					})
+					return
+				}
+
+				// Default unfiltered behavior
+				parts, err := partsService.GetAllParts(limit, offset)
+				if err != nil {
+					log.Printf("[GET /api/parts] ERROR: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to query parts",
+						"details": err.Error(),
+					})
+					return
+				}
+
+				total, err := partsService.GetTotalPartsCount()
+				if err != nil {
+					log.Printf("[GET /api/parts] ERROR getting total count: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to get total parts count",
+						"details": err.Error(),
+					})
+					return
+				}
+
+				log.Printf("[GET /api/parts] Returning %d parts (limit=%d, offset=%d, total=%d)", len(parts), limit, offset, total)
+				if len(parts) > 0 {
+					log.Printf("[GET /api/parts] First part: ID=%d, PartID=%s, Name=%s", parts[0].ID, parts[0].PartID, parts[0].Name)
+				}
+
+				c.JSON(http.StatusOK, gin.H{
+					"data":    parts,
+					"message": "Parts retrieved successfully",
+					"total":   total,
+					"limit":   limit,
+					"offset":  offset,
 				})
-				return
-			}
-
-			log.Printf("[GET /api/parts] Returning %d parts (limit=%d, offset=%d, total=%d)", len(parts), limit, offset, total)
-			if len(parts) > 0 {
-				log.Printf("[GET /api/parts] First part: ID=%d, PartID=%s, Name=%s", parts[0].ID, parts[0].PartID, parts[0].Name)
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"data":    parts,
-				"message": "Parts retrieved successfully",
-				"total":   total,
-				"limit":   limit,
-				"offset":  offset,
 			})
-		})
 
-		// GET /api/parts/:id - Get a single part by ID
-		api.GET("/parts/:id", func(c *gin.Context) {
-			id, err := strconv.Atoi(c.Param("id"))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "Invalid part ID",
-				})
-				return
-			}
+			// GET /api/parts/:id - Get a single part by ID
+			api.GET("/parts/:id", func(c *gin.Context) {
+				id, err := strconv.Atoi(c.Param("id"))
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": "Invalid part ID",
+					})
+					return
+				}
 
-			part, err := partsService.GetPartByID(id)
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, gin.H{
-					"error": "Part not found",
-				})
-				return
-			} else if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to query part",
-					"details": err.Error(),
-				})
-				return
-			}
+				part, err := partsService.GetPartByID(id)
+				if err == sql.ErrNoRows {
+					c.JSON(http.StatusNotFound, gin.H{
+						"error": "Part not found",
+					})
+					return
+				} else if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to query part",
+						"details": err.Error(),
+					})
+					return
+				}
 
-			c.JSON(http.StatusOK, gin.H{
-				"data":    part,
-				"message": "Part retrieved successfully",
+				c.JSON(http.StatusOK, gin.H{
+					"data":    part,
+					"message": "Part retrieved successfully",
+				})
 			})
-		})
 
-		// GET /api/sites/:id/parts - Get all parts for a specific site
-		api.GET("/sites/:id/parts", func(c *gin.Context) {
-			siteID, err := strconv.Atoi(c.Param("id"))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "Invalid site ID",
+			// GET /api/sites/:id/parts - Get all parts for a specific site
+			api.GET("/sites/:id/parts", func(c *gin.Context) {
+				siteID, err := strconv.Atoi(c.Param("id"))
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": "Invalid site ID",
+					})
+					return
+				}
+
+				limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+				offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+				parts, err := partsService.GetPartsBySiteID(siteID, limit, offset)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to query parts for site",
+						"details": err.Error(),
+					})
+					return
+				}
+
+				c.JSON(http.StatusOK, gin.H{
+					"data":    parts,
+					"message": "Parts retrieved successfully",
+					"total":   len(parts),
+					"site_id": siteID,
+					"limit":   limit,
+					"offset":  offset,
 				})
-				return
-			}
-
-			limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
-			offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-
-			parts, err := partsService.GetPartsBySiteID(siteID, limit, offset)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to query parts for site",
-					"details": err.Error(),
-				})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"data":    parts,
-				"message": "Parts retrieved successfully",
-				"total":   len(parts),
-				"site_id": siteID,
-				"limit":   limit,
-				"offset":  offset,
 			})
-		})
 
-		// DELETE /api/sites/:id/parts - Delete all parts for a specific site
-		api.DELETE("/sites/:id/parts", func(c *gin.Context) {
-			siteID, err := strconv.Atoi(c.Param("id"))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "Invalid site ID",
+			// DELETE /api/sites/:id/parts - Delete all parts for a specific site
+			api.DELETE("/sites/:id/parts", func(c *gin.Context) {
+				siteID, err := strconv.Atoi(c.Param("id"))
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": "Invalid site ID",
+					})
+					return
+				}
+
+				err = partsService.DeletePartsBySiteID(siteID)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to delete parts for site",
+						"details": err.Error(),
+					})
+					return
+				}
+
+				c.JSON(http.StatusOK, gin.H{
+					"message": "Parts deleted successfully",
+					"site_id": siteID,
 				})
-				return
-			}
-
-			err = partsService.DeletePartsBySiteID(siteID)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to delete parts for site",
-					"details": err.Error(),
-				})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Parts deleted successfully",
-				"site_id": siteID,
 			})
+
 		})
 	}
 }

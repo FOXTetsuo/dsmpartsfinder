@@ -25,7 +25,36 @@ func (c *SQLClient) GetTotalPartsCount() (int, error) {
 		logError("Failed to get total parts count", err)
 		return 0, err
 	}
+	return count, nil
+}
 
+func (c *SQLClient) GetFilteredPartsCount(typeFilter string, siteID int, newerThan time.Time) (int, error) {
+	queryBuilder := strings.Builder{}
+	params := make([]interface{}, 0)
+
+	queryBuilder.WriteString("SELECT COUNT(*) FROM parts WHERE 1=1")
+
+	if typeFilter != "" {
+		queryBuilder.WriteString(" AND type_name = ?")
+		params = append(params, typeFilter)
+	}
+
+	if siteID > 0 {
+		queryBuilder.WriteString(" AND site_id = ?")
+		params = append(params, siteID)
+	}
+
+	if !newerThan.IsZero() {
+		queryBuilder.WriteString(" AND created_at > ?")
+		params = append(params, newerThan)
+	}
+
+	var count int
+	err := c.db.QueryRow(queryBuilder.String(), params...).Scan(&count)
+	if err != nil {
+		logError("Failed to get filtered parts count", err)
+		return 0, err
+	}
 	return count, nil
 }
 
@@ -245,17 +274,35 @@ func (c *SQLClient) GetPartByID(id int) (*Part, error) {
 	return &part, nil
 }
 
-// GetPartsBySiteID retrieves all parts for a specific site
-func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, error) {
-	query := `
+// GetFilteredParts retrieves filtered parts from the database
+func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time) ([]Part, error) {
+	queryBuilder := strings.Builder{}
+	params := make([]interface{}, 0)
+
+	queryBuilder.WriteString(`
 		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, price, created_at, updated_at, last_seen
 		FROM parts
-		WHERE site_id = ?
-		ORDER BY created_at DESC
-		LIMIT ? OFFSET ?
-	`
+		WHERE 1=1`)
 
-	rows, err := c.db.Query(query, siteID, limit, offset)
+	if typeFilter != "" {
+		queryBuilder.WriteString(" AND type_name = ?")
+		params = append(params, typeFilter)
+	}
+
+	if siteID > 0 {
+		queryBuilder.WriteString(" AND site_id = ?")
+		params = append(params, siteID)
+	}
+
+	if !newerThan.IsZero() {
+		queryBuilder.WriteString(" AND created_at > ?")
+		params = append(params, newerThan)
+	}
+
+	queryBuilder.WriteString(" ORDER BY created_at DESC LIMIT ? OFFSET ?")
+	params = append(params, limit, offset)
+
+	rows, err := c.db.Query(queryBuilder.String(), params...)
 	if err != nil {
 		logError(fmt.Sprintf("Failed to query parts for site ID %d", siteID), err)
 		return nil, err
@@ -290,7 +337,7 @@ func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, err
 	return parts, nil
 }
 
-// GetAllParts retrieves all parts from the database
+// / GetAllParts retrieves all parts
 func (c *SQLClient) GetAllParts(limit, offset int) ([]Part, error) {
 	query := `
 		SELECT id, part_id, description, type_name, name, image_base64, url, site_id, price, created_at, updated_at, last_seen

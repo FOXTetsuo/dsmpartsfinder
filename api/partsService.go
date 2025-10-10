@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	. "dsmpartsfinder-api/models"
 	"dsmpartsfinder-api/siteclients"
@@ -185,6 +186,19 @@ func (s *PartsService) GetAllParts(limit, offset int) ([]Part, error) {
 	return parts, nil
 }
 
+// GetFilteredParts retrieves filtered parts from the database
+func (s *PartsService) GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time) ([]Part, error) {
+	log.Printf("[GetFilteredParts] Called with limit=%d, offset=%d, typeFilter=%s, siteID=%d, newerThan=%v",
+		limit, offset, typeFilter, siteID, newerThan)
+	parts, err := s.sqlClient.GetFilteredParts(limit, offset, typeFilter, siteID, newerThan)
+	if err != nil {
+		log.Printf("[GetFilteredParts] ERROR: %v", err)
+		return nil, err
+	}
+	log.Printf("[GetFilteredParts] Retrieved %d parts from database", len(parts))
+	return parts, nil
+}
+
 func (s *PartsService) GetTotalPartsCount() (int, error) {
 	count, err := s.sqlClient.GetTotalPartsCount()
 	if err != nil {
@@ -192,6 +206,17 @@ func (s *PartsService) GetTotalPartsCount() (int, error) {
 		return 0, err
 	}
 	log.Printf("[GetTotalPartsCount] Total count: %d", count)
+	return count, nil
+}
+
+func (s *PartsService) GetFilteredPartsCount(typeFilter string, siteID int, newerThan time.Time) (int, error) {
+	count, err := s.sqlClient.GetFilteredPartsCount(typeFilter, siteID, newerThan)
+	if err != nil {
+		log.Printf("[GetFilteredPartsCount] ERROR: %v", err)
+		return 0, err
+	}
+	log.Printf("[GetFilteredPartsCount] Total count: %d (typeFilter=%s, siteID=%d, newerThan=%v)",
+		count, typeFilter, siteID, newerThan)
 	return count, nil
 }
 

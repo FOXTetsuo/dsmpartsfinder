@@ -782,11 +782,6 @@ export default defineComponent({
             loading.value = true;
             try {
                 const offset = (currentPage.value - 1) * pageSize.value;
-                console.log("Making API request with params:", {
-                    currentPage: currentPage.value,
-                    pageSize: pageSize.value,
-                    calculatedOffset: offset,
-                });
                 const params = {
                     limit: pageSize.value,
                     offset: offset,
@@ -799,26 +794,18 @@ export default defineComponent({
                         ? 72
                         : undefined,
                 };
-                console.log("Request params:", params);
                 const response = await axios.get("/api/parts", { params });
-                console.log("API Response:", {
-                    receivedItems: response.data.data.length,
-                    firstItemId: response.data.data[0]?.id,
-                    lastItemId:
-                        response.data.data[response.data.data.length - 1]?.id,
-                });
                 parts.value = response.data.data || [];
                 totalItems.value = response.data.total || 0;
-                console.log("Pagination Debug:", {
-                    totalItems: totalItems.value,
-                    pageSize: pageSize.value,
-                    totalPages: Math.ceil(totalItems.value / pageSize.value),
-                    currentPage: currentPage.value,
-                    responseTotal: response.data.total,
-                });
             } catch (error) {
-                console.error("Error loading parts:", error);
-                message.error("Failed to load parts");
+                if (error.response && error.response.status === 404) {
+                    // Not showing error for no results
+                    parts.value = [];
+                    totalItems.value = 0;
+                } else {
+                    console.error("Error loading parts:", error);
+                    message.error("Failed to load parts");
+                }
             } finally {
                 loading.value = false;
             }
@@ -877,8 +864,9 @@ export default defineComponent({
                 // typeName: null,
                 showOnlyNew: false,
             };
-            sortBy.value = "newest";
+            sortBy.value = "creation_date_desc";
             currentPage.value = 1;
+            loadParts();
         };
 
         // Debounced search
@@ -945,8 +933,9 @@ export default defineComponent({
 
 .parts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    min-height: 200px;
 }
 
 .part-card-price {
@@ -1196,6 +1185,14 @@ export default defineComponent({
 
 .only-new-checkbox :deep(.n-checkbox-box) {
     margin-top: 0;
+}
+
+.no-results {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    width: 100%;
 }
 
 .only-new-checkbox :deep(.n-checkbox__label) {

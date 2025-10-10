@@ -207,28 +207,8 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 
 			log.Printf("[POST /api/parts/fetch] Request: SiteID=%d, Limit=%d", req.SiteID, req.Limit)
 
-			// Set defaults
-			if req.YearFrom == 0 {
-				req.YearFrom = 1960
-			}
-			if req.YearTo == 0 {
-				req.YearTo = 2025
-			}
-			if req.Limit == 0 {
-				req.Limit = 30
-			}
-
 			// Convert to search params
-			params := siteclients.SearchParams{
-				VehicleType: req.VehicleType,
-				Make:        req.Make,
-				BaseModel:   req.BaseModel,
-				Model:       req.Model,
-				YearFrom:    req.YearFrom,
-				YearTo:      req.YearTo,
-				Offset:      req.Offset,
-				Limit:       req.Limit,
-			}
+			params := siteclients.SearchParams{}
 
 			// Fetch and store parts
 			parts, err := partsService.FetchAndStoreParts(c.Request.Context(), req.SiteID, params)

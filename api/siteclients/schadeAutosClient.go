@@ -74,48 +74,24 @@ func (c *SchadeAutosClient) FetchParts(ctx context.Context, params SearchParams)
 	// Build form data
 	formData := url.Values{}
 
-	// Set vehicle type with default
-	vehicleType := params.VehicleType
-	if vehicleType == "" {
-		vehicleType = "P"
-	}
-	formData.Set("widget[vehicleType]", vehicleType)
-
-	// Set make with default
-	makeParam := params.Make
-	if makeParam == "" {
-		makeParam = "A0001E2D"
-	}
-	formData.Set("widget[make]", makeParam)
-
-	// Set base model with default
-	baseModel := params.BaseModel
-	if baseModel == "" {
-		baseModel = "A0001FHK"
-	}
-	formData.Set("widget[baseModel]", baseModel)
-
-	// Set model with default
-	model := params.Model
-	if model == "" {
-		model = "A0001FHL"
-	}
-	formData.Set("widget[model]", model)
-
+	formData.Set("widget[vehicleType]", "P")
+	formData.Set("widget[make]", "A0001E2D")
+	formData.Set("widget[baseModel]", "A0001FHK")
+	formData.Set("widget[model]", "A0001FHL")
 	formData.Set("widget[type]", "")
 	formData.Set("widget[vehicle]", "")
 
 	// Set year from with default
 	yearFrom := params.YearFrom
 	if yearFrom == 0 {
-		yearFrom = 1960
+		yearFrom = 1995
 	}
 	formData.Set("widget[yearFrom]", fmt.Sprintf("%d", yearFrom))
 
 	// Set year to with default
 	yearTo := params.YearTo
 	if yearTo == 0 {
-		yearTo = 2025
+		yearTo = 2000
 	}
 	formData.Set("widget[yearTo]", fmt.Sprintf("%d", yearTo))
 

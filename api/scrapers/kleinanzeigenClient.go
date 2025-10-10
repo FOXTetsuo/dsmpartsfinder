@@ -168,9 +168,6 @@ func (c *KleinanzeigenClient) fetchSinglePage(ctx context.Context, searchURL str
 func (c *KleinanzeigenClient) buildSearchURLWithPage(params siteclients.SearchParams, page int) (string, error) {
 	// Build the search keywords
 	keywords := "Mitsubishi Eclipse D30"
-	if params.Model != "" {
-		keywords = fmt.Sprintf("Mitsubishi Eclipse %s", params.Model)
-	}
 
 	// Build query parameters
 	queryParams := url.Values{}

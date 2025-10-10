@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"dsmpartsfinder-api/routes"
@@ -48,6 +49,11 @@ func main() {
 			partsService.RegisterSiteClient(site.ID, client)
 		case "Kleinanzeigen":
 			client := scrapers.NewKleinanzeigenClient(site.ID)
+			partsService.RegisterSiteClient(site.ID, client)
+		case "Ebay":
+			clientID := os.Getenv("EBAY_CLIENT_ID")
+			clientSecret := os.Getenv("EBAY_CLIENT_SECRET")
+			client := siteclients.NewEbayClient(site.ID, clientID, clientSecret, false)
 			partsService.RegisterSiteClient(site.ID, client)
 		default:
 			log.Printf("No client implementation for site '%s' (site ID: %d), skipping registration", site.Name, site.ID)

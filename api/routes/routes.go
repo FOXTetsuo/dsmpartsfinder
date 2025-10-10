@@ -25,19 +25,19 @@ type SQLClient interface {
 	GetPartByID(id int) (*Part, error)
 	GetPartsBySiteID(siteID, limit, offset int) ([]Part, error)
 	DeletePartsBySiteID(siteID int) error
-	GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time, search string, sortBy string, sortDesc bool) ([]Part, error)
+	GetFilteredParts(limit, offset int, typeFilter string, siteIDs []int, newerThan time.Time, search string, sortBy string, sortDesc bool) ([]Part, error)
 }
 
 type PartsService interface {
 	FetchAndStoreParts(ctx context.Context, siteID int, params siteclients.SearchParams) ([]Part, error)
 	GetRegisteredSiteIDs() []int
 	GetAllParts(limit, offset int) ([]Part, error)
-	GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time, search string, sortBy string, sortDesc bool) ([]Part, error)
+	GetFilteredParts(limit, offset int, typeFilter string, siteIDs []int, newerThan time.Time, search string, sortBy string, sortDesc bool) ([]Part, error)
 	GetPartByID(id int) (*Part, error)
 	GetPartsBySiteID(siteID, limit, offset int) ([]Part, error)
 	DeletePartsBySiteID(siteID int) error
 	GetTotalPartsCount() (int, error)
-	GetFilteredPartsCount(typeFilter string, siteID int, newerThan time.Time, search string) (int, error)
+	GetFilteredPartsCount(typeFilter string, siteIDs []int, newerThan time.Time, search string) (int, error)
 }
 
 func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsService) {
@@ -241,13 +241,19 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 			limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 			offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 			typeFilter := c.Query("type")
-			siteID, _ := strconv.Atoi(c.DefaultQuery("site_id", "0"))
+			siteIDsStr := c.QueryArray("site_ids[]")
+			siteIDs := make([]int, 0)
+			for _, idStr := range siteIDsStr {
+				if id, err := strconv.Atoi(idStr); err == nil {
+					siteIDs = append(siteIDs, id)
+				}
+			}
 			sortBy := c.DefaultQuery("sort", "")
 			sortDesc := c.DefaultQuery("sort_desc", "false") == "true"
 
 			// If any filter is specified, use filtered endpoint
 			search := c.Query("search")
-			if typeFilter != "" || siteID != 0 || c.Query("newer_than_hours") != "" || search != "" || sortBy != "" {
+			if typeFilter != "" || len(siteIDs) > 0 || c.Query("newer_than_hours") != "" || search != "" || sortBy != "" {
 				var newerThan time.Time
 				if c.Query("newer_than_hours") != "" {
 					hours, _ := strconv.Atoi(c.DefaultQuery("newer_than_hours", "72"))
@@ -255,9 +261,9 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 				}
 
 				log.Printf("[GET /api/parts] Called with filters: limit=%d, offset=%d, type=%s, site_id=%d, newer_than=%v",
-					limit, offset, typeFilter, siteID, newerThan)
+					limit, offset, typeFilter, siteIDs, newerThan)
 
-				parts, err := partsService.GetFilteredParts(limit, offset, typeFilter, siteID, newerThan, search, sortBy, sortDesc)
+				parts, err := partsService.GetFilteredParts(limit, offset, typeFilter, siteIDs, newerThan, search, sortBy, sortDesc)
 				if err != nil {
 					log.Printf("[GET /api/parts] ERROR: %v", err)
 					c.JSON(http.StatusInternalServerError, gin.H{
@@ -267,7 +273,7 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 					return
 				}
 
-				total, err := partsService.GetFilteredPartsCount(typeFilter, siteID, newerThan, search)
+				total, err := partsService.GetFilteredPartsCount(typeFilter, siteIDs, newerThan, search)
 				if err != nil {
 					log.Printf("[GET /api/parts] ERROR getting filtered count: %v", err)
 					c.JSON(http.StatusInternalServerError, gin.H{

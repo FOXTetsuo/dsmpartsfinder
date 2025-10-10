@@ -53,11 +53,12 @@
                         <n-space :size="12" wrap>
                             <!-- Site Filter -->
                             <n-select
-                                v-model:value="filters.siteId"
+                                v-model:value="filters.siteIds"
                                 :options="siteOptions"
                                 placeholder="All Sites"
+                                multiple
                                 clearable
-                                style="width: 180px"
+                                style="width: 280px"
                                 @update:value="applyFilters"
                             />
 
@@ -226,14 +227,17 @@
                         <n-space v-if="hasActiveFilters" :size="8">
                             <n-text depth="3">Active filters:</n-text>
                             <n-tag
-                                v-if="filters.siteId"
+                                v-for="siteId in filters.siteIds"
+                                :key="siteId"
                                 closable
                                 @close="
-                                    filters.siteId = null;
+                                    filters.siteIds = filters.siteIds.filter(
+                                        (id) => id !== siteId,
+                                    );
                                     applyFilters();
                                 "
                             >
-                                Site: {{ getSiteName(filters.siteId) }}
+                                Site: {{ getSiteName(siteId) }}
                             </n-tag>
                             <!-- <n-tag
                                 v-if="filters.typeName"
@@ -702,7 +706,7 @@ export default defineComponent({
         ];
 
         const filters = ref({
-            siteId: null,
+            siteIds: [],
             // typeName: null,
             showOnlyNew: false,
         });
@@ -717,13 +721,10 @@ export default defineComponent({
 
         // Computed: Site options for filter
         const siteOptions = computed(() => {
-            return [
-                { label: "All Sites", value: null },
-                ...sites.value.map((site) => ({
-                    label: site.name,
-                    value: site.id,
-                })),
-            ];
+            return sites.value.map((site) => ({
+                label: site.name,
+                value: site.id,
+            }));
         });
 
         // Computed: Type options for filter
@@ -759,7 +760,7 @@ export default defineComponent({
         // Check if there are active filters
         const hasActiveFilters = computed(() => {
             return (
-                filters.value.siteId !== null ||
+                filters.value.siteIds.length > 0 ||
                 // filters.value.typeName !== null ||
                 filters.value.showOnlyNew ||
                 searchQuery.value.length > 0
@@ -785,7 +786,7 @@ export default defineComponent({
                 const params = {
                     limit: pageSize.value,
                     offset: offset,
-                    site_id: filters.value.siteId,
+                    site_ids: filters.value.siteIds,
                     // type_name: filters.value.typeName,
                     search: searchQuery.value || undefined,
                     sort: sortBy.value,
@@ -860,7 +861,7 @@ export default defineComponent({
         const resetFilters = () => {
             searchQuery.value = "";
             filters.value = {
-                siteId: null,
+                siteIds: [],
                 // typeName: null,
                 showOnlyNew: false,
             };

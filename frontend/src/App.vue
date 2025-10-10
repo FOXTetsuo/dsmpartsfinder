@@ -155,8 +155,9 @@
                         class="flex flex-col items-center justify-center space-y-2"
                     >
                         <p class="text-sm text-gray-500">
-                            © 2024 DSM Parts Finder. Built with Vue 3 &
-                            Tailwind CSS.
+                            © 2024 DSM Parts Finder. Built by a guy who was too
+                            fucking lazy to keep searching for new parts in
+                            junkyards.
                         </p>
                         <p class="text-xs text-gray-400">
                             Find and manage parts for your DSM vehicle

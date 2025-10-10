@@ -28,7 +28,7 @@ func (c *SQLClient) GetTotalPartsCount() (int, error) {
 	return count, nil
 }
 
-func (c *SQLClient) GetFilteredPartsCount(typeFilter string, siteID int, newerThan time.Time, search string) (int, error) {
+func (c *SQLClient) GetFilteredPartsCount(typeFilter string, siteIDs []int, newerThan time.Time, search string) (int, error) {
 	queryBuilder := strings.Builder{}
 	params := make([]interface{}, 0)
 
@@ -39,9 +39,13 @@ func (c *SQLClient) GetFilteredPartsCount(typeFilter string, siteID int, newerTh
 		params = append(params, typeFilter)
 	}
 
-	if siteID > 0 {
-		queryBuilder.WriteString(" AND site_id = ?")
-		params = append(params, siteID)
+	if len(siteIDs) > 0 {
+		placeholders := make([]string, len(siteIDs))
+		for i := range siteIDs {
+			placeholders[i] = "?"
+			params = append(params, siteIDs[i])
+		}
+		queryBuilder.WriteString(" AND site_id IN (" + strings.Join(placeholders, ",") + ")")
 	}
 
 	if !newerThan.IsZero() {
@@ -341,7 +345,7 @@ func (c *SQLClient) GetPartsBySiteID(siteID int, limit, offset int) ([]Part, err
 }
 
 // GetFilteredParts retrieves filtered parts from the database
-func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time, search string, sortBy string, sortDesc bool) ([]Part, error) {
+func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteIDs []int, newerThan time.Time, search string, sortBy string, sortDesc bool) ([]Part, error) {
 	queryBuilder := strings.Builder{}
 	params := make([]interface{}, 0)
 
@@ -355,9 +359,13 @@ func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteI
 		params = append(params, typeFilter)
 	}
 
-	if siteID > 0 {
-		queryBuilder.WriteString(" AND site_id = ?")
-		params = append(params, siteID)
+	if len(siteIDs) > 0 {
+		placeholders := make([]string, len(siteIDs))
+		for i := range siteIDs {
+			placeholders[i] = "?"
+			params = append(params, siteIDs[i])
+		}
+		queryBuilder.WriteString(" AND site_id IN (" + strings.Join(placeholders, ",") + ")")
 	}
 
 	if !newerThan.IsZero() {
@@ -397,7 +405,7 @@ func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteI
 
 	rows, err := c.db.Query(queryBuilder.String(), params...)
 	if err != nil {
-		logError(fmt.Sprintf("Failed to query parts for site ID %d", siteID), err)
+		// logError(fmt.Sprintf("Failed to query parts for site ID %d", siteID), err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -426,7 +434,7 @@ func (c *SQLClient) GetFilteredParts(limit, offset int, typeFilter string, siteI
 		return nil, err
 	}
 
-	logSuccess(fmt.Sprintf("Retrieved %d parts for site ID %d", len(parts), siteID))
+	// logSuccess(fmt.Sprintf("Retrieved %d parts for site ID %d", len(parts), siteID))
 	return parts, nil
 }
 

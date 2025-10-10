@@ -185,10 +185,10 @@ func (s *PartsService) GetAllParts(limit, offset int) ([]Part, error) {
 }
 
 // GetFilteredParts retrieves filtered parts from the database
-func (s *PartsService) GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time, search string, sortBy string, sortDesc bool) ([]Part, error) {
-	log.Printf("[GetFilteredParts] Called with limit=%d, offset=%d, typeFilter=%s, siteID=%d, newerThan=%v, search=%s, sortBy=%s, sortDesc=%v",
-		limit, offset, typeFilter, siteID, newerThan, search, sortBy, sortDesc)
-	parts, err := s.sqlClient.GetFilteredParts(limit, offset, typeFilter, siteID, newerThan, search, sortBy, sortDesc)
+func (s *PartsService) GetFilteredParts(limit, offset int, typeFilter string, siteIDs []int, newerThan time.Time, search string, sortBy string, sortDesc bool) ([]Part, error) {
+	log.Printf("[GetFilteredParts] Called with limit=%d, offset=%d, typeFilter=%s, siteIDs=%v, newerThan=%v, search=%s, sortBy=%s, sortDesc=%v",
+		limit, offset, typeFilter, siteIDs, newerThan, search, sortBy, sortDesc)
+	parts, err := s.sqlClient.GetFilteredParts(limit, offset, typeFilter, siteIDs, newerThan, search, sortBy, sortDesc)
 	if err != nil {
 		log.Printf("[GetFilteredParts] ERROR: %v", err)
 		return nil, err
@@ -207,14 +207,14 @@ func (s *PartsService) GetTotalPartsCount() (int, error) {
 	return count, nil
 }
 
-func (s *PartsService) GetFilteredPartsCount(typeFilter string, siteID int, newerThan time.Time, search string) (int, error) {
-	count, err := s.sqlClient.GetFilteredPartsCount(typeFilter, siteID, newerThan, search)
+func (s *PartsService) GetFilteredPartsCount(typeFilter string, siteIDs []int, newerThan time.Time, search string) (int, error) {
+	count, err := s.sqlClient.GetFilteredPartsCount(typeFilter, siteIDs, newerThan, search)
 	if err != nil {
 		log.Printf("[GetFilteredPartsCount] ERROR: %v", err)
 		return 0, err
 	}
-	log.Printf("[GetFilteredPartsCount] Total count: %d (typeFilter=%s, siteID=%d, newerThan=%v, search=%s)",
-		count, typeFilter, siteID, newerThan, search)
+	log.Printf("[GetFilteredPartsCount] Total count: %d (typeFilter=%s, siteIDs=%v, newerThan=%v, search=%s)",
+		count, typeFilter, siteIDs, newerThan, search)
 	return count, nil
 }
 

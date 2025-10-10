@@ -187,10 +187,10 @@ func (s *PartsService) GetAllParts(limit, offset int) ([]Part, error) {
 }
 
 // GetFilteredParts retrieves filtered parts from the database
-func (s *PartsService) GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time, search string) ([]Part, error) {
-	log.Printf("[GetFilteredParts] Called with limit=%d, offset=%d, typeFilter=%s, siteID=%d, newerThan=%v, search=%s",
-		limit, offset, typeFilter, siteID, newerThan, search)
-	parts, err := s.sqlClient.GetFilteredParts(limit, offset, typeFilter, siteID, newerThan, search)
+func (s *PartsService) GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time, search string, sortBy string, sortDesc bool) ([]Part, error) {
+	log.Printf("[GetFilteredParts] Called with limit=%d, offset=%d, typeFilter=%s, siteID=%d, newerThan=%v, search=%s, sortBy=%s, sortDesc=%v",
+		limit, offset, typeFilter, siteID, newerThan, search, sortBy, sortDesc)
+	parts, err := s.sqlClient.GetFilteredParts(limit, offset, typeFilter, siteID, newerThan, search, sortBy, sortDesc)
 	if err != nil {
 		log.Printf("[GetFilteredParts] ERROR: %v", err)
 		return nil, err

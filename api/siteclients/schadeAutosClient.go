@@ -12,6 +12,29 @@ import (
 	"time"
 )
 
+// parseEnterDate converts the enterDate string to a *time.Time
+func parseEnterDate(dateStr string) *time.Time {
+	if dateStr == "" {
+		return nil
+	}
+
+	// Try common date formats
+	layouts := []string{
+		"2006-01-02",
+		"2006-01-02 15:04:05",
+		"02-01-2006",
+		"02/01/2006",
+	}
+
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, dateStr); err == nil {
+			return &t
+		}
+	}
+
+	return nil
+}
+
 // SchadeAutosClient implements the SiteClient interface for schadeautos.nl
 type SchadeAutosClient struct {
 	baseURL    string
@@ -163,10 +186,11 @@ func (c *SchadeAutosClient) FetchParts(ctx context.Context, params SearchParams)
 			ID:          partID,
 			Description: stockPart.Descr,
 			// TypeName:    stockPart.TypeName,
-			Name:   stockPart.Name,
-			URL:    c.buildPartURL(partID, &stockPart),
-			SiteID: c.siteID,
-			Price:  "€ " + stockPart.Price,
+			Name:         stockPart.Name,
+			URL:          c.buildPartURL(partID, &stockPart),
+			SiteID:       c.siteID,
+			Price:        "€ " + stockPart.Price,
+			CreationDate: *parseEnterDate(stockPart.EnterDate),
 		}
 
 		// Fetch and convert image to base64

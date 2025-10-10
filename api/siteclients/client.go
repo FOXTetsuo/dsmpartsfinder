@@ -2,18 +2,20 @@ package siteclients
 
 import (
 	"context"
+	"time"
 )
 
 // Part represents a car part from any site client
 type Part struct {
-	ID          string `json:"id"`
-	Description string `json:"description"`
-	TypeName    string `json:"type_name"`
-	Name        string `json:"name"`
-	ImageBase64 string `json:"image_base64"`
-	URL         string `json:"url"`
-	SiteID      int    `json:"site_id"`
-	Price       string `json:"price"`
+	ID           string    `json:"id"`
+	Description  string    `json:"description"`
+	TypeName     string    `json:"type_name"`
+	Name         string    `json:"name"`
+	ImageBase64  string    `json:"image_base64"`
+	URL          string    `json:"url"`
+	SiteID       int       `json:"site_id"`
+	Price        string    `json:"price"`
+	CreationDate time.Time `json:"creation_date"`
 }
 
 // SearchParams represents the search parameters for finding parts

@@ -762,6 +762,8 @@ export default defineComponent({
             { label: "Newest First", value: "newest" },
             { label: "Oldest First", value: "oldest" },
             { label: "Recently Seen", value: "recent_seen" },
+            { label: "Creation Date (Newest)", value: "creation_date_desc" },
+            { label: "Creation Date (Oldest)", value: "creation_date_asc" },
             { label: "Name (A-Z)", value: "name_asc" },
             { label: "Name (Z-A)", value: "name_desc" },
         ];
@@ -803,7 +805,8 @@ export default defineComponent({
                     site_id: filters.value.siteId,
                     // type_name: filters.value.typeName,
                     search: searchQuery.value || undefined,
-                    sort_by: sortBy.value,
+                    sort: sortBy.value,
+                    sort_desc: sortBy.value.endsWith("_desc"),
                     newer_than_hours: filters.value.showOnlyNew
                         ? 72
                         : undefined,

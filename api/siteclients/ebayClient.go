@@ -45,8 +45,9 @@ type EbayItem struct {
 		Value    string `json:"value"`
 		Currency string `json:"currency"`
 	} `json:"price"`
-	Condition       string `json:"condition"`
-	ItemWebURL      string `json:"itemWebUrl"`
+	Condition       string    `json:"condition"`
+	ItemWebURL      string    `json:"itemWebUrl"`
+	ItemOriginDate  time.Time `json:"itemOriginDate"`
 	ThumbnailImages []struct {
 		ImageURL string `json:"imageUrl"`
 	} `json:"thumbnailImages"`
@@ -232,10 +233,11 @@ func (c *EbayClient) FetchParts(ctx context.Context, params SearchParams) ([]Par
 				ID:          item.ItemID,
 				Description: item.Title,
 				// TypeName:    "", // eBay doesn't provide type name directly
-				Name:   item.Title,
-				URL:    item.ItemWebURL,
-				SiteID: c.siteID,
-				Price:  "€ " + item.Price.Value,
+				Name:         item.Title,
+				URL:          item.ItemWebURL,
+				SiteID:       c.siteID,
+				Price:        "€ " + item.Price.Value,
+				CreationDate: item.ItemOriginDate,
 			}
 			// Fetch and convert image to base64
 			if len(item.ThumbnailImages) > 0 && item.ThumbnailImages[0].ImageURL != "" {

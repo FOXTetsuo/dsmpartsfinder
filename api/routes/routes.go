@@ -25,13 +25,14 @@ type SQLClient interface {
 	GetPartByID(id int) (*Part, error)
 	GetPartsBySiteID(siteID, limit, offset int) ([]Part, error)
 	DeletePartsBySiteID(siteID int) error
+	GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time, search string, sortBy string, sortDesc bool) ([]Part, error)
 }
 
 type PartsService interface {
 	FetchAndStoreParts(ctx context.Context, siteID int, params siteclients.SearchParams) ([]Part, error)
 	GetRegisteredSiteIDs() []int
 	GetAllParts(limit, offset int) ([]Part, error)
-	GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time, search string) ([]Part, error)
+	GetFilteredParts(limit, offset int, typeFilter string, siteID int, newerThan time.Time, search string, sortBy string, sortDesc bool) ([]Part, error)
 	GetPartByID(id int) (*Part, error)
 	GetPartsBySiteID(siteID, limit, offset int) ([]Part, error)
 	DeletePartsBySiteID(siteID int) error
@@ -241,10 +242,12 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 			offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 			typeFilter := c.Query("type")
 			siteID, _ := strconv.Atoi(c.DefaultQuery("site_id", "0"))
+			sortBy := c.DefaultQuery("sort", "")
+			sortDesc := c.DefaultQuery("sort_desc", "false") == "true"
 
 			// If any filter is specified, use filtered endpoint
 			search := c.Query("search")
-			if typeFilter != "" || siteID != 0 || c.Query("newer_than_hours") != "" || search != "" {
+			if typeFilter != "" || siteID != 0 || c.Query("newer_than_hours") != "" || search != "" || sortBy != "" {
 				var newerThan time.Time
 				if c.Query("newer_than_hours") != "" {
 					hours, _ := strconv.Atoi(c.DefaultQuery("newer_than_hours", "72"))
@@ -254,7 +257,7 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 				log.Printf("[GET /api/parts] Called with filters: limit=%d, offset=%d, type=%s, site_id=%d, newer_than=%v",
 					limit, offset, typeFilter, siteID, newerThan)
 
-				parts, err := partsService.GetFilteredParts(limit, offset, typeFilter, siteID, newerThan, search)
+				parts, err := partsService.GetFilteredParts(limit, offset, typeFilter, siteID, newerThan, search, sortBy, sortDesc)
 				if err != nil {
 					log.Printf("[GET /api/parts] ERROR: %v", err)
 					c.JSON(http.StatusInternalServerError, gin.H{

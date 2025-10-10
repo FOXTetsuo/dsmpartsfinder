@@ -2,6 +2,7 @@ package scrapers
 
 import (
 	"context"
+	"dsmpartsfinder-api/siteclients"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -10,8 +11,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"dsmpartsfinder-api/siteclients"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -197,6 +196,33 @@ func (c *KleinanzeigenClient) buildSearchURLWithPage(params siteclients.SearchPa
 func (c *KleinanzeigenClient) extractPart(ctx context.Context, s *goquery.Selection) (siteclients.Part, error) {
 	part := siteclients.Part{
 		SiteID: c.siteID,
+	}
+
+	// Extract creation date from calendar icon
+	dateText := s.Find(".iconlist-element-icon-calendar-open").Text()
+	dateText = strings.TrimSpace(dateText)
+	if dateText != "" {
+		var creationDate time.Time
+
+		switch dateText {
+		case "Heute":
+			creationDate = time.Now()
+		case "Gestern":
+			creationDate = time.Now().AddDate(0, 0, -1)
+		default:
+			// Try parsing date formats like "DD.MM.YYYY" or "DD.MM.YY"
+			layouts := []string{"02.01.2006", "02.01.06"}
+			for _, layout := range layouts {
+				if t, err := time.Parse(layout, dateText); err == nil {
+					creationDate = t
+					break
+				}
+			}
+		}
+
+		if !creationDate.IsZero() {
+			part.CreationDate = creationDate
+		}
 	}
 
 	// Extract ad ID (part ID)

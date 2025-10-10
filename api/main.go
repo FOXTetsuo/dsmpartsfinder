@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,10 +13,13 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/pressly/goose/v3"
 )
 
 func main() {
 	r := gin.Default()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Open database connection
 	sqlClient, err := NewSQLClient("./sqlite.db")
@@ -24,11 +28,9 @@ func main() {
 	}
 	defer sqlClient.Close()
 
-	// // Run database migrations
-	// migrationRunner := NewMigrationRunner(sqlClient.db)
-	// if err := migrationRunner.Run("./migrations"); err != nil {
-	// 	log.Fatalf("Failed to run migrations: %v", err)
-	// }
+	if err := goose.RunContext(ctx, "up", sqlClient.db, "./migrations"); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
 
 	// Initialize PartsService
 	partsService := NewPartsService(sqlClient)
@@ -44,11 +46,9 @@ func main() {
 		case "SchadeAutos":
 			client := siteclients.NewSchadeAutosClient(site.ID)
 			partsService.RegisterSiteClient(site.ID, client)
-			log.Printf("Registered SchadeAutos client (site ID: %d)", site.ID)
 		case "Kleinanzeigen":
 			client := scrapers.NewKleinanzeigenClient(site.ID)
 			partsService.RegisterSiteClient(site.ID, client)
-			log.Printf("Registered Kleinanzeigen client (site ID: %d)", site.ID)
 		default:
 			log.Printf("No client implementation for site '%s' (site ID: %d), skipping registration", site.Name, site.ID)
 		}

@@ -129,13 +129,6 @@ func (c *KleinanzeigenClient) fetchSinglePage(ctx context.Context, searchURL str
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// Log a sample of the HTML for debugging
-	htmlSample := string(bodyBytes)
-	if len(htmlSample) > 1000 {
-		htmlSample = htmlSample[:1000]
-	}
-	log.Printf("[KleinanzeigenClient] HTML sample:\n%s", htmlSample)
-
 	// Parse HTML
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(bodyBytes)))
 	if err != nil {

@@ -201,21 +201,46 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 				return
 			}
 
-			// Fetch and store parts from all sites
-			log.Println("[POST /api/parts/fetch-all] Starting to fetch from all sites...")
+			// Create a context with timeout
+			ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Minute)
+			defer cancel()
+
+			// Channel to collect results from goroutines
+			type FetchResult struct {
+				siteID int
+				parts  []Part
+				err    error
+			}
+			results := make(chan FetchResult, len(siteIDs))
+
+			// Launch a goroutine for each site
+			log.Println("[POST /api/parts/fetch-all] Starting concurrent fetch from all sites...")
+			for _, siteID := range siteIDs {
+				go func(id int) {
+					log.Printf("[POST /api/parts/fetch-all] Starting fetch for site ID: %d", id)
+					parts, err := partsService.FetchAndStoreParts(ctx, id, params)
+					results <- FetchResult{
+						siteID: id,
+						parts:  parts,
+						err:    err,
+					}
+				}(siteID)
+			}
+
+			// Collect results
 			allParts := make([]Part, 0)
 			errors := make(map[int]string)
 
-			for _, siteID := range siteIDs {
-				log.Printf("[POST /api/parts/fetch-all] Fetching from site ID: %d", siteID)
-				parts, err := partsService.FetchAndStoreParts(c.Request.Context(), siteID, params)
-				if err != nil {
-					errors[siteID] = err.Error()
-					log.Printf("[POST /api/parts/fetch-all] ERROR fetching parts from site %d: %v", siteID, err)
+			// Wait for all fetches to complete
+			for range siteIDs {
+				result := <-results
+				if result.err != nil {
+					log.Printf("[POST /api/parts/fetch-all] ERROR fetching parts from site %d: %v", result.siteID, result.err)
+					errors[result.siteID] = result.err.Error()
 					continue
 				}
-				log.Printf("[POST /api/parts/fetch-all] Got %d parts from site %d", len(parts), siteID)
-				allParts = append(allParts, parts...)
+				log.Printf("[POST /api/parts/fetch-all] Got %d parts from site %d", len(result.parts), result.siteID)
+				allParts = append(allParts, result.parts...)
 			}
 
 			log.Printf("[POST /api/parts/fetch-all] Total parts collected: %d", len(allParts))

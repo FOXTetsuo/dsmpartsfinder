@@ -68,13 +68,15 @@ func main() {
 
 	// Initialize and start scheduler for automatic fetching
 	scheduler := NewScheduler(partsService)
-	if err := scheduler.Start(); err != nil {
-		log.Fatalf("Failed to start scheduler: %v", err)
-	}
+	go func() {
+		if err := scheduler.Start(); err != nil {
+			log.Printf("Scheduler error: %v", err)
+		}
+	}()
 	defer scheduler.Stop()
 
 	// Global error recovery middleware
-	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
+	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered any) {
 		log.Printf("PANIC: %v", recovered)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Internal server error",

@@ -81,29 +81,46 @@ func (s *Scheduler) fetchAllParts() {
 		Limit:       10000, // High limit to get everything
 	}
 
-	// Track statistics
-	totalParts := 0
-	totalNew := 0
-	totalErrors := 0
+	// Track statistics with channels
+	type FetchResult struct {
+		siteID     int
+		partsCount int
+		duration   time.Duration
+		err        error
+	}
+	results := make(chan FetchResult, len(siteIDs))
 
-	// Fetch from each site
-	ctx := context.Background()
+	// Create a context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// Launch goroutine for each site
 	for _, siteID := range siteIDs {
-		siteStartTime := time.Now()
-		log.Printf("[Scheduler] Fetching from site ID: %d", siteID)
+		go func(id int) {
+			siteStartTime := time.Now()
+			parts, err := s.partsService.FetchAndStoreParts(ctx, id, params)
+			results <- FetchResult{
+				siteID:     id,
+				partsCount: len(parts),
+				duration:   time.Since(siteStartTime),
+				err:        err,
+			}
+		}(siteID)
+	}
 
-		parts, err := s.partsService.FetchAndStoreParts(ctx, siteID, params)
-		if err != nil {
-			log.Printf("[Scheduler] ERROR: Failed to fetch from site %d: %v", siteID, err)
+	// Collect results
+	var totalParts, totalNew, totalErrors int
+	for range siteIDs {
+		result := <-results
+		if result.err != nil {
+			log.Printf("[Scheduler] ERROR: Failed to fetch from site %d: %v", result.siteID, result.err)
 			totalErrors++
 			continue
 		}
 
-		siteDuration := time.Since(siteStartTime)
-		totalParts += len(parts)
-		totalNew += len(parts)
-
-		log.Printf("[Scheduler] Site %d: Fetched %d new parts in %v", siteID, len(parts), siteDuration)
+		totalParts += result.partsCount
+		totalNew += result.partsCount
+		log.Printf("[Scheduler] Site %d: Fetched %d new parts in %v", result.siteID, result.partsCount, result.duration)
 	}
 
 	// Log summary

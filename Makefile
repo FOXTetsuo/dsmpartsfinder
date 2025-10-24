@@ -19,7 +19,6 @@ build-api: build-frontend
 	cd api && \
 	go mod tidy && \
 	go build -o ../builds/dsmpartsfinder . && \
-	cp testsqlite._db ../builds/sqlite.db && \
 	rm -rf ../builds/frontend && cp -r ../frontend/dist ../builds/frontend
 
 # Clean build artifacts

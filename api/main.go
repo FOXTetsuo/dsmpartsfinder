@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"dsmpartsfinder-api/routes"
@@ -19,6 +20,23 @@ import (
 )
 
 func main() {
+	logsDir := "logs"
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		log.Fatalf("Failed to create logs directory: %v", err)
+	}
+
+	// If in release mode, log to file
+	if gin.Mode() == gin.ReleaseMode {
+		currentDate := time.Now().Format("2006-01-02")
+		logFilePath := filepath.Join(logsDir, currentDate+".log")
+		logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatalf("Failed to open log file: %v", err)
+		}
+		log.SetOutput(logFile)
+		// Note: not closing the file, as it should remain open for the duration
+	}
+
 	r := gin.Default()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

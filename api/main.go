@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"dsmpartsfinder-api/routes"
@@ -19,7 +22,11 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+//go:embed migrations
+var migrationsFS embed.FS
+
 func main() {
+
 	logsDir := "logs"
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
 		log.Fatalf("Failed to create logs directory: %v", err)
@@ -48,7 +55,16 @@ func main() {
 	}
 	defer sqlClient.Close()
 
-	if err := goose.RunContext(ctx, "up", sqlClient.db, "./migrations"); err != nil {
+	subFS, err := fs.Sub(migrationsFS, "migrations")
+	if err != nil {
+		log.Fatalf("Failed to create sub FS: %v", err)
+	}
+	provider, err := goose.NewProvider(goose.DialectSQLite3, sqlClient.db, subFS)
+	if err != nil {
+		log.Fatalf("Failed to create migration provider: %v", err)
+	}
+	_, err = provider.Up(ctx)
+	if err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
@@ -114,6 +130,20 @@ func main() {
 
 	// Register API endpoints from routes.go
 	routes.RegisterAPIRoutes(r, sqlClient, partsService)
+
+	// SPA fallback and static file serving: serve files if exist, else index.html for non-API routes
+	r.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+			return
+		}
+		filePath := "./frontend" + c.Request.URL.Path
+		if _, err := os.Stat(filePath); err == nil {
+			c.File(filePath)
+		} else {
+			c.File("./frontend/index.html")
+		}
+	})
 
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

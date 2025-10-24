@@ -96,6 +96,15 @@ func (s *PartsService) FetchAndStoreParts(ctx context.Context, siteID int, param
 		}
 	}
 
+	// Delete stale parts (last seen more than 3 days ago)
+	olderThan := time.Now().AddDate(0, 0, -3)
+	deletedCount, err := s.sqlClient.DeleteStaleParts(siteID, olderThan)
+	if err != nil {
+		log.Printf("[FetchAndStoreParts] WARNING: Failed to delete stale parts: %v", err)
+	} else {
+		log.Printf("[FetchAndStoreParts] Deleted %d stale parts for site ID %d", deletedCount, siteID)
+	}
+
 	// Store only new parts in the database
 	log.Printf("[FetchAndStoreParts] Starting to store new parts in database")
 	storedParts := make([]Part, 0, len(fetchedParts)-duplicateCount)

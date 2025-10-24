@@ -20,7 +20,7 @@ build-api: build-frontend
 	go mod tidy && \
 	go build -o ../builds/dsmpartsfinder . && \
 	cp testsqlite._db ../builds/sqlite.db && \
-	cp -r ../frontend/dist ../builds/frontend
+	rm -rf ../builds/frontend && cp -r ../frontend/dist ../builds/frontend
 
 # Clean build artifacts
 clean:

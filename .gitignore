@@ -2,5 +2,6 @@ api/sqlite.db
 api/.env
 dsmpartsfinder-api
 dsmpartsfinder-api
-builds/.env
-builds/frontend/dist
+builds
+dsmpartsfinder-api
+sqlite.db

@@ -26,11 +26,39 @@ import (
 var migrationsFS embed.FS
 
 func main() {
+	// Get debug mode
+	debug := os.Getenv("DEBUG")
+	if debug == "" {
+		gin.SetMode(gin.ReleaseMode)
+	} else {
+		gin.SetMode(gin.DebugMode)
+	}
 
 	logsDir := "logs"
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
 		log.Fatalf("Failed to create logs directory: %v", err)
 	}
+
+	// Load environment variables
+	if err := godotenv.Load(".env"); err != nil {
+		log.Printf("Warning: Could not load .env file: %v", err)
+	}
+
+	// Get configurable database path
+	dbPath := os.Getenv("DATABASE_PATH")
+	if dbPath == "" {
+		dbPath = "./sqlite.db"
+	}
+
+	// Get configurable port
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Starting DSM Parts finder on port %s", port)
+	log.Printf("Opening database connection on %s", dbPath)
+	log.Printf("Application is running in %s mode", gin.Mode())
 
 	// If in release mode, log to file
 	if gin.Mode() == gin.ReleaseMode {
@@ -74,11 +102,6 @@ func main() {
 	sites, err := sqlClient.GetAllSites()
 	if err != nil {
 		log.Fatalf("Failed to get sites from database: %v", err)
-	}
-
-	err = godotenv.Load(".env")
-	if err != nil {
-		log.Fatalf("Error loading .env file")
 	}
 
 	// Register site clients dynamically based on DB entries
@@ -145,7 +168,7 @@ func main() {
 		}
 	})
 
-	if err := r.Run(":8080"); err != nil {
+	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

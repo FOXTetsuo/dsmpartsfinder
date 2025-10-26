@@ -101,165 +101,169 @@ func RegisterAPIRoutes(r *gin.Engine, sqlClient SQLClient, partsService PartsSer
 			})
 		})
 
-		// POST /api/parts/fetch - Fetch parts from all sites
-		api.POST("/parts/fetch", func(c *gin.Context) {
-			log.Println("[POST /api/parts/fetch] Endpoint called")
+		if gin.Mode() != gin.ReleaseMode {
+			// POST /api/parts/fetch - Fetch parts from all sites
+			api.POST("/parts/fetch", func(c *gin.Context) {
+				log.Println("[POST /api/parts/fetch] Endpoint called")
 
-			var req FetchPartsRequest
-			if err := c.ShouldBindJSON(&req); err != nil {
-				log.Printf("[POST /api/parts/fetch] ERROR: Invalid request body: %v", err)
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error":   "Invalid request body",
-					"details": err.Error(),
-				})
-				return
-			}
-
-			log.Printf("[POST /api/parts/fetch] Request: SiteID=%d, Limit=%d", req.SiteID, req.Limit)
-
-			// Convert to search params
-			params := siteclients.SearchParams{}
-
-			// Fetch and store parts
-			parts, err := partsService.FetchAndStoreParts(c.Request.Context(), req.SiteID, params)
-			if err != nil {
-				log.Printf("[POST /api/parts/fetch] ERROR: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to fetch and store parts",
-					"details": err.Error(),
-				})
-				return
-			}
-
-			log.Printf("[POST /api/parts/fetch] Successfully fetched and stored %d parts", len(parts))
-
-			c.JSON(http.StatusOK, gin.H{
-				"data":    parts,
-				"message": "Parts fetched and stored successfully",
-				"total":   len(parts),
-			})
-		})
-
-		// POST /api/parts/fetch-all - Fetch parts from all registered sites
-		api.POST("/parts/fetch-all", func(c *gin.Context) {
-			log.Println("[POST /api/parts/fetch-all] Endpoint called")
-
-			var req struct {
-				VehicleType string `json:"vehicle_type"`
-				Make        string `json:"make"`
-				BaseModel   string `json:"base_model"`
-				Model       string `json:"model"`
-				YearFrom    int    `json:"year_from"`
-				YearTo      int    `json:"year_to"`
-				Offset      int    `json:"offset"`
-				Limit       int    `json:"limit"`
-			}
-
-			if err := c.ShouldBindJSON(&req); err != nil {
-				// If no body provided, use defaults
-				log.Printf("[POST /api/parts/fetch-all] No valid JSON body, using defaults. Error: %v", err)
-				req.YearFrom = 1960
-				req.YearTo = 2025
-				req.Limit = 30
-			}
-
-			// Set defaults if not provided
-			if req.YearFrom == 0 {
-				req.YearFrom = 1960
-			}
-			if req.YearTo == 0 {
-				req.YearTo = 2025
-			}
-			if req.Limit == 0 {
-				req.Limit = 30
-			}
-
-			log.Printf("[POST /api/parts/fetch-all] Request params: YearFrom=%d, YearTo=%d, Limit=%d, Make=%s, Model=%s",
-				req.YearFrom, req.YearTo, req.Limit, req.Make, req.Model)
-
-			// Convert to search params
-			params := siteclients.SearchParams{
-				VehicleType: req.VehicleType,
-				Make:        req.Make,
-				BaseModel:   req.BaseModel,
-				Model:       req.Model,
-				YearFrom:    req.YearFrom,
-				YearTo:      req.YearTo,
-				Offset:      req.Offset,
-				Limit:       req.Limit,
-			}
-
-			// Get all registered site IDs
-			siteIDs := partsService.GetRegisteredSiteIDs()
-			log.Printf("[POST /api/parts/fetch-all] Found %d registered site(s): %v", len(siteIDs), siteIDs)
-
-			if len(siteIDs) == 0 {
-				log.Println("[POST /api/parts/fetch-all] ERROR: No site clients registered")
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "No site clients registered",
-				})
-				return
-			}
-
-			// Create a context with timeout
-			ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Minute)
-			defer cancel()
-
-			// Channel to collect results from goroutines
-			type FetchResult struct {
-				siteID int
-				parts  []Part
-				err    error
-			}
-			results := make(chan FetchResult, len(siteIDs))
-
-			// Launch a goroutine for each site
-			log.Println("[POST /api/parts/fetch-all] Starting concurrent fetch from all sites...")
-			for _, siteID := range siteIDs {
-				go func(id int) {
-					log.Printf("[POST /api/parts/fetch-all] Starting fetch for site ID: %d", id)
-					parts, err := partsService.FetchAndStoreParts(ctx, id, params)
-					results <- FetchResult{
-						siteID: id,
-						parts:  parts,
-						err:    err,
-					}
-				}(siteID)
-			}
-
-			// Collect results
-			allParts := make([]Part, 0)
-			errors := make(map[int]string)
-
-			// Wait for all fetches to complete
-			for range siteIDs {
-				result := <-results
-				if result.err != nil {
-					log.Printf("[POST /api/parts/fetch-all] ERROR fetching parts from site %d: %v", result.siteID, result.err)
-					errors[result.siteID] = result.err.Error()
-					continue
+				var req FetchPartsRequest
+				if err := c.ShouldBindJSON(&req); err != nil {
+					log.Printf("[POST /api/parts/fetch] ERROR: Invalid request body: %v", err)
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error":   "Invalid request body",
+						"details": err.Error(),
+					})
+					return
 				}
-				log.Printf("[POST /api/parts/fetch-all] Got %d parts from site %d", len(result.parts), result.siteID)
-				allParts = append(allParts, result.parts...)
-			}
 
-			log.Printf("[POST /api/parts/fetch-all] Total parts collected: %d", len(allParts))
+				log.Printf("[POST /api/parts/fetch] Request: SiteID=%d, Limit=%d", req.SiteID, req.Limit)
 
-			response := gin.H{
-				"data":    allParts,
-				"total":   len(allParts),
-				"sites":   len(siteIDs),
-				"message": "Parts fetched from all sites",
-			}
+				// Convert to search params
+				params := siteclients.SearchParams{}
 
-			if len(errors) > 0 {
-				log.Printf("[POST /api/parts/fetch-all] Encountered errors for %d sites: %v", len(errors), errors)
-				response["errors"] = errors
-			}
+				// Fetch and store parts
+				parts, err := partsService.FetchAndStoreParts(c.Request.Context(), req.SiteID, params)
+				if err != nil {
+					log.Printf("[POST /api/parts/fetch] ERROR: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to fetch and store parts",
+						"details": err.Error(),
+					})
+					return
+				}
 
-			log.Printf("[POST /api/parts/fetch-all] Returning response with %d parts", len(allParts))
-			c.JSON(http.StatusOK, response)
-		})
+				log.Printf("[POST /api/parts/fetch] Successfully fetched and stored %d parts", len(parts))
+
+				c.JSON(http.StatusOK, gin.H{
+					"data":    parts,
+					"message": "Parts fetched and stored successfully",
+					"total":   len(parts),
+				})
+			})
+		}
+
+		if gin.Mode() != gin.ReleaseMode {
+			// POST /api/parts/fetch-all - Fetch parts from all registered sites
+			api.POST("/parts/fetch-all", func(c *gin.Context) {
+				log.Println("[POST /api/parts/fetch-all] Endpoint called")
+
+				var req struct {
+					VehicleType string `json:"vehicle_type"`
+					Make        string `json:"make"`
+					BaseModel   string `json:"base_model"`
+					Model       string `json:"model"`
+					YearFrom    int    `json:"year_from"`
+					YearTo      int    `json:"year_to"`
+					Offset      int    `json:"offset"`
+					Limit       int    `json:"limit"`
+				}
+
+				if err := c.ShouldBindJSON(&req); err != nil {
+					// If no body provided, use defaults
+					log.Printf("[POST /api/parts/fetch-all] No valid JSON body, using defaults. Error: %v", err)
+					req.YearFrom = 1960
+					req.YearTo = 2025
+					req.Limit = 30
+				}
+
+				// Set defaults if not provided
+				if req.YearFrom == 0 {
+					req.YearFrom = 1960
+				}
+				if req.YearTo == 0 {
+					req.YearTo = 2025
+				}
+				if req.Limit == 0 {
+					req.Limit = 30
+				}
+
+				log.Printf("[POST /api/parts/fetch-all] Request params: YearFrom=%d, YearTo=%d, Limit=%d, Make=%s, Model=%s",
+					req.YearFrom, req.YearTo, req.Limit, req.Make, req.Model)
+
+				// Convert to search params
+				params := siteclients.SearchParams{
+					VehicleType: req.VehicleType,
+					Make:        req.Make,
+					BaseModel:   req.BaseModel,
+					Model:       req.Model,
+					YearFrom:    req.YearFrom,
+					YearTo:      req.YearTo,
+					Offset:      req.Offset,
+					Limit:       req.Limit,
+				}
+
+				// Get all registered site IDs
+				siteIDs := partsService.GetRegisteredSiteIDs()
+				log.Printf("[POST /api/parts/fetch-all] Found %d registered site(s): %v", len(siteIDs), siteIDs)
+
+				if len(siteIDs) == 0 {
+					log.Println("[POST /api/parts/fetch-all] ERROR: No site clients registered")
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": "No site clients registered",
+					})
+					return
+				}
+
+				// Create a context with timeout
+				ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Minute)
+				defer cancel()
+
+				// Channel to collect results from goroutines
+				type FetchResult struct {
+					siteID int
+					parts  []Part
+					err    error
+				}
+				results := make(chan FetchResult, len(siteIDs))
+
+				// Launch a goroutine for each site
+				log.Println("[POST /api/parts/fetch-all] Starting concurrent fetch from all sites...")
+				for _, siteID := range siteIDs {
+					go func(id int) {
+						log.Printf("[POST /api/parts/fetch-all] Starting fetch for site ID: %d", id)
+						parts, err := partsService.FetchAndStoreParts(ctx, id, params)
+						results <- FetchResult{
+							siteID: id,
+							parts:  parts,
+							err:    err,
+						}
+					}(siteID)
+				}
+
+				// Collect results
+				allParts := make([]Part, 0)
+				errors := make(map[int]string)
+
+				// Wait for all fetches to complete
+				for range siteIDs {
+					result := <-results
+					if result.err != nil {
+						log.Printf("[POST /api/parts/fetch-all] ERROR fetching parts from site %d: %v", result.siteID, result.err)
+						errors[result.siteID] = result.err.Error()
+						continue
+					}
+					log.Printf("[POST /api/parts/fetch-all] Got %d parts from site %d", len(result.parts), result.siteID)
+					allParts = append(allParts, result.parts...)
+				}
+
+				log.Printf("[POST /api/parts/fetch-all] Total parts collected: %d", len(allParts))
+
+				response := gin.H{
+					"data":    allParts,
+					"total":   len(allParts),
+					"sites":   len(siteIDs),
+					"message": "Parts fetched from all sites",
+				}
+
+				if len(errors) > 0 {
+					log.Printf("[POST /api/parts/fetch-all] Encountered errors for %d sites: %v", len(errors), errors)
+					response["errors"] = errors
+				}
+
+				log.Printf("[POST /api/parts/fetch-all] Returning response with %d parts", len(allParts))
+				c.JSON(http.StatusOK, response)
+			})
+		}
 
 		// GET /api/parts - Get all parts with pagination
 		api.GET("/parts", func(c *gin.Context) {

@@ -8,26 +8,33 @@ import Home from "./views/Home.vue";
 import Parts from "./views/Parts.vue";
 import Browse from "./views/Browse.vue";
 
+// Create routes array
+const routes = [
+  {
+    path: "/",
+    name: "Home",
+    component: Home,
+  },
+  {
+    path: "/browse",
+    name: "Browse",
+    component: Browse,
+  },
+];
+
+// Conditionally add Parts route in development
+if (!import.meta.env.PROD) {
+  routes.push({
+    path: "/parts",
+    name: "Parts",
+    component: Parts,
+  });
+}
+
 // Create router
 const router = createRouter({
   history: createWebHistory(),
-  routes: [
-    {
-      path: "/",
-      name: "Home",
-      component: Home,
-    },
-    {
-      path: "/parts",
-      name: "Parts",
-      component: Parts,
-    },
-    {
-      path: "/browse",
-      name: "Browse",
-      component: Browse,
-    },
-  ],
+  routes,
 });
 
 // Create and mount app

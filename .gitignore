@@ -6,3 +6,4 @@ builds
 dsmpartsfinder-api
 sqlite.db
 api/logs
+api/frontend/dist

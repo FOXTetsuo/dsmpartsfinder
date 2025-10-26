@@ -1,0 +1,26 @@
+name: Makefile CI
+
+on:
+  workflow_run:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: make
+
+    - name: Run check
+      run: make check
+
+    - name: Run distcheck
+      run: make distcheck
+
+    - name: Build
+      run: make build
+
+    

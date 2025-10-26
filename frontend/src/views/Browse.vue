@@ -578,7 +578,7 @@
                                     {{ selectedPart.type_name }}
                                 </n-descriptions-item> -->
                                 <n-descriptions-item label="Site">
-                                    Site {{ selectedPart.site_id }}
+                                    {{ getSiteName(selectedPart.site_id) }}
                                 </n-descriptions-item>
                                 <n-descriptions-item label="Added">
                                     {{ formatDate(selectedPart.creation_date) }}

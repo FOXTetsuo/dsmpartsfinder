@@ -31,6 +31,9 @@ func NewScheduler(partsService *PartsService) *Scheduler {
 func (s *Scheduler) Start() error {
 	log.Println("[Scheduler] Setting up scheduled tasks...")
 
+	log.Println("[Scheduler] Starting startup fetch")
+	s.fetchAllParts()
+
 	_, err := s.cron.AddFunc("0 0 * * * *", func() {
 		log.Println("[Scheduler] Running scheduled hourly fetch...")
 		s.fetchAllParts()

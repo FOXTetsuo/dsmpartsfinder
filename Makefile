@@ -12,14 +12,18 @@ build-frontend:
 		yarn install; \
 	fi && \
 	yarn build
-# Build the Go API
+
+
 build-api: build-frontend
-	@echo "Building Go API..."
+	@echo "Copying frontend dist to api folder..."
+	rm -rf api/frontend/dist
+	mkdir -p api/frontend
+	cp -r frontend/dist api/frontend/
+	@echo "Building Go API with embedded frontend..."
 	mkdir -p builds && \
 	cd api && \
 	go mod tidy && \
-	go build -o ../builds/dsmpartsfinder . && \
-	rm -rf ../builds/frontend && cp -r ../frontend/dist ../builds/frontend
+	go build -o ../builds/dsmpartsfinder .
 
 # Clean build artifacts
 clean:
@@ -27,3 +31,8 @@ clean:
 	rm -rf frontend/dist
 	rm -rf builds
 	cd api && rm -rf logs
+
+# Run in development mode (without embedding)
+run:
+	@echo "Running in development mode..."
+	cd api && go run .

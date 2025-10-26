@@ -25,6 +25,9 @@ import (
 //go:embed migrations
 var migrationsFS embed.FS
 
+//go:embed frontend/dist
+var frontendFS embed.FS
+
 func main() {
 	// Get debug mode
 	debug := os.Getenv("DEBUG")
@@ -154,21 +157,78 @@ func main() {
 	// Register API endpoints from routes.go
 	routes.RegisterAPIRoutes(r, sqlClient, partsService)
 
-	// SPA fallback and static file serving: serve files if exist, else index.html for non-API routes
+	// Serve embedded frontend files
+	frontendSubFS, err := fs.Sub(frontendFS, "frontend/dist")
+	if err != nil {
+		log.Fatalf("Failed to create frontend sub FS: %v", err)
+	}
+
+	// SPA fallback and static file serving from embedded FS
 	r.NoRoute(func(c *gin.Context) {
 		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 			return
 		}
-		filePath := "./frontend" + c.Request.URL.Path
-		if _, err := os.Stat(filePath); err == nil {
-			c.File(filePath)
-		} else {
-			c.File("./frontend/index.html")
+
+		// Remove leading slash for fs.Sub compatibility
+		path := strings.TrimPrefix(c.Request.URL.Path, "/")
+		if path == "" {
+			path = "index.html"
 		}
+
+		// Try to read the file from embedded FS
+		data, err := fs.ReadFile(frontendSubFS, path)
+		if err != nil {
+			// File not found, serve index.html for SPA routing
+			data, err = fs.ReadFile(frontendSubFS, "index.html")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load frontend"})
+				return
+			}
+			c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+			return
+		}
+
+		// Determine content type based on file extension
+		contentType := getContentType(path)
+		c.Data(http.StatusOK, contentType, data)
 	})
 
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
+	}
+}
+
+func getContentType(path string) string {
+	ext := filepath.Ext(path)
+	switch ext {
+	case ".html":
+		return "text/html; charset=utf-8"
+	case ".css":
+		return "text/css; charset=utf-8"
+	case ".js":
+		return "application/javascript; charset=utf-8"
+	case ".json":
+		return "application/json; charset=utf-8"
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".svg":
+		return "image/svg+xml"
+	case ".ico":
+		return "image/x-icon"
+	case ".woff":
+		return "font/woff"
+	case ".woff2":
+		return "font/woff2"
+	case ".ttf":
+		return "font/ttf"
+	case ".eot":
+		return "application/vnd.ms-fontobject"
+	default:
+		return "application/octet-stream"
 	}
 }

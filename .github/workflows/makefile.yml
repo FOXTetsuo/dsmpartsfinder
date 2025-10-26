@@ -1,26 +1,49 @@
 name: Makefile CI
 
 on:
-  workflow_run:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Create a release"
+        required: false
+        type: boolean
+      version:
+        description: "Version number for the release (e.g., 1.0.0)"
+        required: false
+        type: string
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: make
+      - name: Install dependencies
+        run: make
 
-    - name: Run check
-      run: make check
+      - name: Run check
+        run: make check
 
-    - name: Run distcheck
-      run: make distcheck
+      - name: Run distcheck
+        run: make distcheck
 
-    - name: Build
-      run: make build
+      - name: Build
+        run: make build
 
-    
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsmpartsfinder
+          path: builds/dsmpartsfinder
+
+      - name: Create Release
+        if: inputs.release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ inputs.version }}
+          name: Release ${{ inputs.version }}
+          body: Automated release
+          files: builds/dsmpartsfinder
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

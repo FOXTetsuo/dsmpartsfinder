@@ -5,3 +5,4 @@ dsmpartsfinder-api
 builds
 dsmpartsfinder-api
 sqlite.db
+api/logs

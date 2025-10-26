@@ -16,11 +16,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    # 👇 Add this block so the workflow can create releases
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: make
 
       - name: Build
         run: make build
